@@ -3,18 +3,44 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 target="${1:-${repo_root}/tmp/agent-fixture}"
+profile="${2:-semantic}"
+
+case "$profile" in
+  control|semantic)
+    ;;
+  *)
+    echo "Usage: $0 [target] [control|semantic]" >&2
+    exit 2
+    ;;
+esac
 
 rm -rf "$target"
-mkdir -p "$target"
+mkdir -p "$target/bin"
 
-for item in Gemfile .ruby-version Rakefile bin config app rubydex.toml; do
+for item in .ruby-version Rakefile config app; do
   cp -R "${repo_root}/${item}" "$target/"
 done
 
+cp "${repo_root}/Gemfile" "$target/Gemfile"
+cp "${repo_root}/bin/rails" "$target/bin/rails"
+chmod +x "$target/bin/rails"
+
+if [[ -f "${repo_root}/Gemfile.lock" ]]; then
+  cp "${repo_root}/Gemfile.lock" "$target/Gemfile.lock"
+fi
+
+if [[ "$profile" == "semantic" ]]; then
+  cp "${repo_root}/rubydex.toml" "$target/rubydex.toml"
+else
+  # The control fixture must not expose Rubydex as an available project tool.
+  sed -i.bak '/gem "rubydex"/d' "$target/Gemfile"
+  rm -f "$target/Gemfile.bak" "$target/Gemfile.lock" "$target/rubydex.toml"
+fi
+
 cat <<EOF
-Prepared isolated agent fixture at:
+Prepared isolated ${profile} agent fixture at:
   $target
 
-This copy intentionally excludes README.md, labs/, benchmarks/, docs/, and the custom linter rule.
-Run the control and Rubydex agent sessions against separate copies produced by this script.
+This copy intentionally excludes README.md, labs/, benchmarks/, docs/, custom linter rules,
+and the lab runner scripts themselves.
 EOF
