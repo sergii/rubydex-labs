@@ -68,8 +68,8 @@ if [[ -f "${global_codex_home}/auth.json" ]]; then
   ln -s "${global_codex_home}/auth.json" "${benchmark_codex_home}/auth.json"
 fi
 
-benchmark_model="${RUBYDEX_LABS_MODEL:-gpt-6-astra}"
-benchmark_reasoning="${RUBYDEX_LABS_REASONING:-xhigh}"
+benchmark_model="${RUBYDEX_LABS_MODEL:-gpt-5.6-luna}"
+benchmark_reasoning="${RUBYDEX_LABS_REASONING:-medium}"
 
 cat > "${benchmark_codex_home}/config.toml" <<EOF
 model = "${benchmark_model}"
