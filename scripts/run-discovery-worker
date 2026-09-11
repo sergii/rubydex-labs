@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target="${1:?target directory is required}"
+codex_home="${2:?CODEX_HOME is required}"
+prompt_file="${3:?prompt file is required}"
+run_dir="${4:?run directory is required}"
+
+started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+started_epoch="$(date +%s)"
+printf 'running\n' > "${run_dir}/state"
+printf '%s\n' "$started_at" > "${run_dir}/started_at"
+
+set +e
+CODEX_HOME="$codex_home" codex exec \
+  --ephemeral \
+  --json \
+  --cd "$target" \
+  --output-last-message "${run_dir}/final.txt" \
+  "$(cat "$prompt_file")" \
+  > "${run_dir}/events.jsonl" \
+  2> "${run_dir}/stderr.log"
+status=$?
+set -e
+
+finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+finished_epoch="$(date +%s)"
+elapsed="$((finished_epoch - started_epoch))"
+
+printf '%s\n' "$status" > "${run_dir}/exit_code"
+printf '%s\n' "$finished_at" > "${run_dir}/finished_at"
+printf '%s\n' "$elapsed" > "${run_dir}/elapsed_seconds"
+
+python3 - "$run_dir" "$status" "$elapsed" <<'PY'
+import json
+from collections import Counter
+from pathlib import Path
+import sys
+
+run_dir = Path(sys.argv[1])
+exit_code = int(sys.argv[2])
+elapsed = int(sys.argv[3])
+events_path = run_dir / "events.jsonl"
+
+usage = {
+    "input_tokens": 0,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 0,
+    "reasoning_output_tokens": 0,
+}
+thread_id = None
+item_types = Counter()
+turn_completed = False
+turn_failed = False
+top_level_errors = []
+
+if events_path.exists():
+    for raw in events_path.read_text(errors="replace").splitlines():
+        try:
+            event = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+
+        event_type = event.get("type")
+        if event_type == "thread.started":
+            thread_id = event.get("thread_id")
+        elif event_type == "turn.completed":
+            turn_completed = True
+            event_usage = event.get("usage") or {}
+            for key in usage:
+                usage[key] = int(event_usage.get(key, 0) or 0)
+        elif event_type == "turn.failed":
+            turn_failed = True
+        elif event_type == "error":
+            top_level_errors.append(event.get("message", "unknown error"))
+        elif event_type in {"item.started", "item.updated", "item.completed"}:
+            item = event.get("item") or {}
+            item_type = item.get("type")
+            if item_type:
+                item_types[item_type] += 1
+
+summary = {
+    "status": "completed" if exit_code == 0 and turn_completed and not turn_failed else "failed",
+    "exit_code": exit_code,
+    "elapsed_seconds": elapsed,
+    "thread_id": thread_id,
+    "turn_completed": turn_completed,
+    "turn_failed": turn_failed,
+    "usage": {
+        **usage,
+        "total_tokens": usage["input_tokens"] + usage["output_tokens"],
+    },
+    "item_event_counts": dict(sorted(item_types.items())),
+    "top_level_errors": top_level_errors,
+}
+
+(run_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+
+lines = [
+    f"status: {summary['status']}",
+    f"exit_code: {exit_code}",
+    f"elapsed_seconds: {elapsed}",
+    f"thread_id: {thread_id or '-'}",
+    f"total_tokens: {summary['usage']['total_tokens']}",
+    f"input_tokens: {usage['input_tokens']}",
+    f"cached_input_tokens: {usage['cached_input_tokens']}",
+    f"output_tokens: {usage['output_tokens']}",
+    f"reasoning_output_tokens: {usage['reasoning_output_tokens']}",
+]
+(run_dir / "summary.txt").write_text("\n".join(lines) + "\n")
+PY
+
+if [[ "$status" -eq 0 ]]; then
+  printf 'completed\n' > "${run_dir}/state"
+else
+  printf 'failed\n' > "${run_dir}/state"
+fi
+
+exit "$status"
