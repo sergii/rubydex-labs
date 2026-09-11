@@ -3,13 +3,13 @@ set -euo pipefail
 
 mode="${1:-}"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-task_file="${repo_root}/labs/02-agent-navigation/task.md"
 
 case "$mode" in
   A|a)
     label="A"
     profile="control"
     target="/tmp/rubydex-lab-a"
+    task_file="${repo_root}/labs/02-agent-navigation/task.md"
     mcp_enabled="false"
     mcp_required="false"
     ;;
@@ -17,14 +17,26 @@ case "$mode" in
     label="B"
     profile="semantic"
     target="/tmp/rubydex-lab-b"
+    task_file="${repo_root}/labs/02-agent-navigation/task.md"
+    mcp_enabled="true"
+    mcp_required="true"
+    ;;
+  C|c)
+    label="C"
+    profile="semantic-first"
+    fixture_profile="semantic"
+    target="/tmp/rubydex-lab-c"
+    task_file="${repo_root}/labs/02-agent-navigation/task-semantic-first.md"
     mcp_enabled="true"
     mcp_required="true"
     ;;
   *)
-    echo "Usage: $0 A|B" >&2
+    echo "Usage: $0 A|B|C" >&2
     exit 2
     ;;
 esac
+
+fixture_profile="${fixture_profile:-$profile}"
 
 for command_name in bundle codex git; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
@@ -33,7 +45,7 @@ for command_name in bundle codex git; do
   fi
 done
 
-"${repo_root}/scripts/prepare-agent-fixture" "$target" "$profile"
+"${repo_root}/scripts/prepare-agent-fixture" "$target" "$fixture_profile"
 
 cd "$target"
 
@@ -43,7 +55,7 @@ if ! bundle check >/dev/null 2>&1; then
   bundle install
 fi
 
-if [[ "$label" == "B" ]]; then
+if [[ "$label" == "B" || "$label" == "C" ]]; then
   echo "Checking Rubydex before starting Codex..."
   bundle exec rdx query --schema >/dev/null
 fi
