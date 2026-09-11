@@ -95,8 +95,22 @@ if events_path.exists():
 stderr_path = run_dir / "stderr.log"
 stderr_text = stderr_path.read_text(errors="replace") if stderr_path.exists() else ""
 
+error_text = "\n".join(top_level_errors + [stderr_text]).lower()
+usage_blocked = (
+    "usage limit" in error_text
+    or "purchase more credits" in error_text
+    or "you've hit your" in error_text
+)
+
+if exit_code == 0 and turn_completed and not turn_failed:
+    status_name = "completed"
+elif usage_blocked:
+    status_name = "blocked_usage"
+else:
+    status_name = "failed"
+
 summary = {
-    "status": "completed" if exit_code == 0 and turn_completed and not turn_failed else "failed",
+    "status": status_name,
     "exit_code": exit_code,
     "elapsed_seconds": elapsed,
     "thread_id": thread_id,
@@ -113,10 +127,10 @@ summary = {
 }
 
 (run_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
-(run_dir / "state").write_text(summary["status"] + "\n")
+(run_dir / "state").write_text(status_name + "\n")
 
 lines = [
-    f"status: {summary['status']}",
+    f"status: {status_name}",
     f"exit_code: {exit_code}",
     f"elapsed_seconds: {elapsed}",
     f"thread_id: {thread_id or '-'}",
