@@ -113,6 +113,7 @@ summary = {
 }
 
 (run_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+(run_dir / "state").write_text(summary["status"] + "\n")
 
 lines = [
     f"status: {summary['status']}",
@@ -129,11 +130,5 @@ if top_level_errors:
     lines.append("errors: " + " | ".join(top_level_errors))
 (run_dir / "summary.txt").write_text("\n".join(lines) + "\n")
 PY
-
-if [[ "$status" -eq 0 ]] && grep -q '"type":"turn.completed"' "${run_dir}/events.jsonl" 2>/dev/null; then
-  printf 'completed\n' > "${run_dir}/state"
-else
-  printf 'failed\n' > "${run_dir}/state"
-fi
 
 exit "$status"
