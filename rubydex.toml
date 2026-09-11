@@ -1,0 +1,8 @@
+[graph]
+exclude = [
+  "benchmarks/results/**",
+]
+
+[linter.rules.NoConflictingFulfillmentMixins]
+enabled = true
+severity = "error"
