@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mode="${1:-}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+task_file="${repo_root}/labs/02-agent-navigation/task.md"
+
+case "$mode" in
+  A|a)
+    label="A"
+    profile="control"
+    target="/tmp/rubydex-lab-a"
+    mcp_enabled="false"
+    mcp_required="false"
+    ;;
+  B|b)
+    label="B"
+    profile="semantic"
+    target="/tmp/rubydex-lab-b"
+    mcp_enabled="true"
+    mcp_required="true"
+    ;;
+  *)
+    echo "Usage: $0 A|B" >&2
+    exit 2
+    ;;
+esac
+
+for command_name in bundle codex git; do
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    echo "Missing required command: $command_name" >&2
+    exit 1
+  fi
+done
+
+"${repo_root}/scripts/prepare-agent-fixture" "$target" "$profile"
+
+cd "$target"
+
+# Dependency setup is deliberately outside the measured agent run.
+if ! bundle check >/dev/null 2>&1; then
+  echo "Installing dependencies for Lab ${label}..."
+  bundle install
+fi
+
+if [[ "$label" == "B" ]]; then
+  echo "Checking Rubydex before starting Codex..."
+  bundle exec rdx query --schema >/dev/null
+fi
+
+# Codex expects a Git workspace. The baseline commit also makes the final patch trivial to inspect.
+git init -q
+git add -A
+git -c user.name="Rubydex Labs" -c user.email="rubydex-labs@example.invalid" \
+  commit -qm "Baseline Lab ${label} fixture"
+
+prompt="$(cat "$task_file")"
+mcp_config="mcp_servers.rubydex={command=\"bundle\", args=[\"exec\",\"rdx\",\"mcp\"], cwd=\"${target}\", enabled=${mcp_enabled}, required=${mcp_required}}"
+
+cat <<EOF
+
+Starting Lab ${label}
+Workspace: ${target}
+Condition: ${profile}
+Codex model/effort: inherited from your current Codex configuration
+
+Exit Codex when the task is complete. The runner will then print the elapsed time and save the patch.
+EOF
+
+SECONDS=0
+set +e
+codex -C "$target" -c "$mcp_config" "$prompt"
+codex_status=$?
+set -e
+elapsed="$SECONDS"
+
+patch_file="/tmp/rubydex-lab-${label,,}.patch"
+git diff --binary > "$patch_file"
+
+cat <<EOF
+
+Lab ${label} finished
+Elapsed Codex session time: ${elapsed}s
+Codex exit status: ${codex_status}
+Workspace: ${target}
+Patch: ${patch_file}
+
+Changed files:
+EOF
+
+git status --short
+
+echo
+echo "Diff stat:"
+git diff --stat
+
+exit "$codex_status"
