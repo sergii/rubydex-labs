@@ -68,13 +68,21 @@ Scale: ${scale}
 Workspace: ${target}
 Condition: ${profile}
 Codex model/effort: inherited from your current Codex configuration
+Approval policy: never
+Sandbox: read-only
 
 The timed run includes Codex and, for B, Rubydex MCP startup/indexing.
+Discovery is read-only, so approval prompts are disabled to keep wall-clock comparable.
 EOF
 
 SECONDS=0
 set +e
-codex -C "$target" -c "$mcp_config" "$prompt"
+codex \
+  -C "$target" \
+  -c 'approval_policy="never"' \
+  -c 'sandbox_mode="read-only"' \
+  -c "$mcp_config" \
+  "$prompt"
 codex_status=$?
 set -e
 elapsed="$SECONDS"
