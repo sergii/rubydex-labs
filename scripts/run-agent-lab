@@ -74,7 +74,8 @@ codex_status=$?
 set -e
 elapsed="$SECONDS"
 
-patch_file="/tmp/rubydex-lab-${label,,}.patch"
+label_lower="$(printf '%s' "$label" | tr '[:upper:]' '[:lower:]')"
+patch_file="/tmp/rubydex-lab-${label_lower}.patch"
 git diff --binary > "$patch_file"
 
 cat <<EOF
