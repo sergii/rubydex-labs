@@ -4,9 +4,9 @@
 
 Does semantic code navigation reduce exploration cost and mistakes for a coding agent compared with text search alone?
 
-## Task
+The lab now has three conditions so we can separate tool availability from tool-use strategy.
 
-Use the exact prompt in [`task.md`](task.md) for both runs.
+## Fixture
 
 The Rails fixture deliberately contains:
 
@@ -18,55 +18,76 @@ The Rails fixture deliberately contains:
 
 This makes text matching different from semantic reference resolution.
 
-## Prepare isolated workspaces
+## One-command runs
 
-Do not run the benchmark with the repository documentation visible to the coding agent. The root README explains the experiment and would leak useful hints to both conditions.
-
-Create two identical fixture-only directories:
+Use fresh Codex sessions for each condition:
 
 ```bash
-./scripts/prepare-agent-fixture /tmp/rubydex-control
-./scripts/prepare-agent-fixture /tmp/rubydex-semantic
+bin/run-lab-a
+bin/run-lab-b
+bin/run-lab-c
 ```
 
-The helper copies only the Rails application and dependency/configuration files. It intentionally excludes `README.md`, `labs/`, `benchmarks/`, `docs/`, and the custom structural-linter rule.
+Or use the generic launcher:
 
-Run `bundle install` in each fixture before timing agent navigation. Dependency installation time is not part of the benchmark.
+```bash
+bin/run-lab A
+bin/run-lab B
+bin/run-lab C
+```
+
+The runners recreate isolated `/tmp` workspaces, install/check dependencies before timing, create a Git baseline, launch Codex with the correct project-local MCP configuration, and save the final patch.
 
 ## Run A - text navigation only
 
-Open `/tmp/rubydex-control` as the agent workspace.
+`bin/run-lab-a`
 
-Do not configure the Rubydex MCP server and do not use `rdx query`. The agent may use ordinary repository tools such as file listing, `rg`, `grep`, and file reads.
+The control fixture removes Rubydex from the project and disables the Rubydex MCP server.
 
-Give the agent only the contents of [`task.md`](task.md).
+The agent receives only [`task.md`](task.md) and may use ordinary repository navigation such as file listing, `rg`, `grep`, and file reads.
 
-## Run B - Rubydex semantic navigation
+This condition asks:
 
-Open `/tmp/rubydex-semantic` as a fresh agent workspace.
+> How well can the coding agent solve the task with normal text/file navigation?
 
-Configure the coding client to expose this project-local MCP command:
+## Run B - Rubydex available
+
+`bin/run-lab-b`
+
+The fixture includes Rubydex and exposes the project-local MCP server:
 
 ```bash
 bundle exec rdx mcp
 ```
 
-The Rubydex MCP server exposes semantic operations such as declaration lookup, descendants, and resolved constant references.
+The agent receives the exact same [`task.md`](task.md) as Run A. It gets no instruction about when or how to use Rubydex.
 
-Give the agent the exact same task prompt. Do not show it the control transcript or patch.
+This condition asks:
 
-## Suggested treatment strategy
+> Does a coding agent naturally use an available semantic code-intelligence tool efficiently?
 
-The treatment agent should begin with semantic questions before broad text search:
+The first observed A/B run showed that tool availability alone was not enough: the agent performed substantial text exploration before calling Rubydex, so semantic lookup became additional work rather than replacing exploration.
 
-```text
-Find the declaration Inventory::Reservation.
-Find resolved references to that declaration.
-Inspect declarations/files containing those references.
-Read only the source needed to make the rename.
-```
+## Run C - semantic-first Rubydex
 
-It may still use text search afterward. The experiment is not "MCP only". It tests whether semantic navigation changes the amount and quality of exploration.
+`bin/run-lab-c`
+
+The fixture and MCP setup are the same as Run B, but the agent receives [`task-semantic-first.md`](task-semantic-first.md).
+
+Before broad repository text search or reading candidate source files, it must:
+
+1. resolve `Inventory::Reservation`
+2. retrieve all resolved constant references
+3. resolve `Admin::Reservation` and its references
+4. choose files to inspect from those semantic results
+
+Text search is allowed afterward for validation and non-semantic checks.
+
+This condition asks:
+
+> If semantic navigation is used as the primary discovery mechanism rather than an optional extra tool, does it reduce exploration, tokens, or wall-clock time?
+
+Run C intentionally changes the navigation strategy. It is therefore not a prompt-identical A/B comparison. It is a strategy experiment designed to explain the A/B result.
 
 ## Record
 
@@ -75,28 +96,43 @@ For each run capture:
 - final patch correctness
 - number of real references found
 - false positives investigated
-- files read
-- search/tool calls
-- tokens used, when the client reports them
-- wall-clock duration
+- files read before the edit
+- broad text-search calls before the edit
+- Rubydex MCP calls before the edit
+- total search/tool calls
+- tokens used, when Codex reports them
+- Codex reported work time
+- runner wall-clock duration
 - time to first correct model of the dependency set
 
 Copy [`../../benchmarks/run-template.md`](../../benchmarks/run-template.md) for each result.
 
 ## Fairness rules
 
-- Same source commit.
-- Same model and thinking level.
-- Same task wording.
-- Fresh conversation/session for each run.
-- Separate fixture directories.
-- No transcript sharing between runs.
-- No manual hints after the run starts.
-- Do not count dependency installation time as agent navigation time.
-- Run each condition multiple times because agent behavior is stochastic.
+For A vs B:
 
-## Expected pattern
+- same source commit
+- same model and thinking level
+- exact same task wording
+- fresh conversation/session
+- separate fixture directories
+- no transcript sharing
+- no manual hints after the run starts
 
-A tiny task may show little difference. The value of semantic navigation should become clearer as we add more namespaces, inherited references, reopened declarations, and textual noise.
+For C, keep the same source, model, and session isolation, but explicitly record that the navigation strategy is prescribed.
 
-That scaling experiment is intentional. The lab should evolve from "does this work?" to "at what codebase complexity does it start paying for itself?"
+Dependency installation time is outside the timed agent run.
+
+## Important observation about MCP freshness
+
+In the first Run B, Rubydex correctly returned the original declaration and all seven resolved references before editing. After files were changed, a later MCP query still returned the old graph state and did not find the new declaration.
+
+For now, treat Rubydex MCP as a discovery index whose post-edit freshness must be verified rather than assumed. Final correctness should be checked with source/runtime tools such as Zeitwerk, Rails tests, or targeted text validation.
+
+A future lab should test incremental MCP re-indexing explicitly.
+
+## Next scaling experiment
+
+Do not change fixture size until Run C is complete. Otherwise codebase complexity and navigation strategy change at the same time.
+
+After A/B/C are measured on the same fixture, create a larger deterministic fixture with many namespace collisions, unrelated `Reservation` declarations, inherited references, reopened declarations, and textual noise. Then rerun the three conditions to find the point where semantic navigation starts paying for itself.
