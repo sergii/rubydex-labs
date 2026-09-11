@@ -59,7 +59,12 @@ git -c user.name="Rubydex Labs" -c user.email="rubydex-labs@example.invalid" \
   commit -qm "Baseline discovery ${label}/${scale} fixture"
 
 prompt="$(cat "$task_file")"
-mcp_config="mcp_servers.rubydex={command=\"bundle\", args=[\"exec\",\"rdx\",\"mcp\"], cwd=\"${target}\", enabled=${mcp_enabled}, required=${mcp_required}}"
+
+# Discovery runs are read-only and should never stop for shell approvals.
+# Rubydex itself is explicitly auto-approved because its MCP tools are read-only
+# for this benchmark. Known unrelated user MCP servers are disabled so their
+# authentication/startup state does not contaminate timing.
+mcp_config="mcp_servers.rubydex={command=\"bundle\", args=[\"exec\",\"rdx\",\"mcp\"], cwd=\"${target}\", enabled=${mcp_enabled}, required=${mcp_required}, default_tools_approval_mode=\"approve\"}"
 
 cat <<EOF
 
@@ -68,11 +73,8 @@ Scale: ${scale}
 Workspace: ${target}
 Condition: ${profile}
 Codex model/effort: inherited from your current Codex configuration
-Approval policy: never
-Sandbox: read-only
 
 The timed run includes Codex and, for B, Rubydex MCP startup/indexing.
-Discovery is read-only, so approval prompts are disabled to keep wall-clock comparable.
 EOF
 
 SECONDS=0
@@ -81,6 +83,8 @@ codex \
   -C "$target" \
   -c 'approval_policy="never"' \
   -c 'sandbox_mode="read-only"' \
+  -c 'mcp_servers.cloudflare-api.enabled=false' \
+  -c 'mcp_servers.reui.enabled=false' \
   -c "$mcp_config" \
   "$prompt"
 codex_status=$?
