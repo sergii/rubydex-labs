@@ -57,8 +57,9 @@ See [`labs/02-agent-navigation/README.md`](labs/02-agent-navigation/README.md).
 │   ├── 01-structural-linting/
 │   └── 02-agent-navigation/
 ├── rubydex_linter/rules/        # Custom Rubydex structural rules
-├── test/structural/              # Runtime control checks
-├── benchmarks/                   # Result templates and experiment notes
+├── scripts/                     # Reproducible experiment helpers
+├── test/structural/             # Runtime control checks
+├── benchmarks/                  # Result templates and experiment notes
 └── rubydex.toml
 ```
 
@@ -66,7 +67,7 @@ See [`labs/02-agent-navigation/README.md`](labs/02-agent-navigation/README.md).
 
 Do **not** modify the fixture between the control and treatment runs of the same experiment.
 
-For agent experiments, start each run from the same commit in a fresh worktree or clean clone. Do not let the treatment session see notes, transcripts, or patches from the control session.
+For the agent benchmark, use `scripts/prepare-agent-fixture` to create isolated workspaces without the repository's explanatory documentation. Do not let the treatment session see notes, transcripts, or patches from the control session.
 
 ## Metrics
 
@@ -87,11 +88,7 @@ Use [`benchmarks/run-template.md`](benchmarks/run-template.md) for each run.
 
 ## Setup
 
-Requirements:
-
-- Ruby 3.2+
-- Bundler
-- a compiler toolchain supported by the Rubydex native extension
+The repository pins Ruby 3.4.8. Rubydex itself supports Ruby 3.2+.
 
 Install dependencies:
 
@@ -125,6 +122,12 @@ bundle exec rdx mcp
 ```
 
 For clients that support command-based MCP configuration, configure the project-local server command as `bundle exec rdx mcp`.
+
+## References
+
+- [Introducing Rubydex linter: structural checks for Ruby projects](https://railsatscale.com/2026-09-08-introducing-rubydex-linter-structural-checks-for-ruby-projects/)
+- [One engine, many tools - Introducing Rubydex](https://railsatscale.com/2026-05-12-one-engine-many-tools/)
+- [Shopify/rubydex](https://github.com/Shopify/rubydex)
 
 ## Status
 

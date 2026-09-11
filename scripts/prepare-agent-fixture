@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+target="${1:-${repo_root}/tmp/agent-fixture}"
+
+rm -rf "$target"
+mkdir -p "$target"
+
+for item in Gemfile .ruby-version Rakefile bin config app rubydex.toml; do
+  cp -R "${repo_root}/${item}" "$target/"
+done
+
+cat <<EOF
+Prepared isolated agent fixture at:
+  $target
+
+This copy intentionally excludes README.md, labs/, benchmarks/, docs/, and the custom linter rule.
+Run the control and Rubydex agent sessions against separate copies produced by this script.
+EOF

@@ -8,41 +8,42 @@ Does semantic code navigation reduce exploration cost and mistakes for a coding 
 
 Use the exact prompt in [`task.md`](task.md) for both runs.
 
-The codebase deliberately contains:
+The Rails fixture deliberately contains:
 
 - `Inventory::Reservation`, the constant that must be renamed
 - `Admin::Reservation`, an unrelated constant with the same unqualified name
 - references written as both `Inventory::Reservation` and plain `Reservation`
 - inheritance through an unqualified `Reservation`
-- strings and Markdown containing the same words but no Ruby constant reference
+- strings containing the same words but no Ruby constant reference
 
 This makes text matching different from semantic reference resolution.
 
-## Run A - text navigation only
+## Prepare isolated workspaces
 
-Start from a clean worktree. Do not configure the Rubydex MCP server and do not use `rdx query`.
+Do not run the benchmark with the repository documentation visible to the coding agent. The root README explains the experiment and would leak useful hints to both conditions.
 
-The agent may use normal repository tools such as file listing, `rg`, `grep`, and file reads.
-
-Example setup:
+Create two identical fixture-only directories:
 
 ```bash
-git worktree add ../rubydex-labs-control HEAD
-cd ../rubydex-labs-control
-bundle install
+./scripts/prepare-agent-fixture /tmp/rubydex-control
+./scripts/prepare-agent-fixture /tmp/rubydex-semantic
 ```
 
-Give the agent only the task prompt and normal repository access.
+The helper copies only the Rails application and dependency/configuration files. It intentionally excludes `README.md`, `labs/`, `benchmarks/`, `docs/`, and the custom structural-linter rule.
+
+Run `bundle install` in each fixture before timing agent navigation. Dependency installation time is not part of the benchmark.
+
+## Run A - text navigation only
+
+Open `/tmp/rubydex-control` as the agent workspace.
+
+Do not configure the Rubydex MCP server and do not use `rdx query`. The agent may use ordinary repository tools such as file listing, `rg`, `grep`, and file reads.
+
+Give the agent only the contents of [`task.md`](task.md).
 
 ## Run B - Rubydex semantic navigation
 
-Start from the exact same commit in a second clean worktree.
-
-```bash
-git worktree add ../rubydex-labs-semantic HEAD
-cd ../rubydex-labs-semantic
-bundle install
-```
+Open `/tmp/rubydex-semantic` as a fresh agent workspace.
 
 Configure the coding client to expose this project-local MCP command:
 
@@ -65,7 +66,7 @@ Inspect declarations/files containing those references.
 Read only the source needed to make the rename.
 ```
 
-It may still use text search afterward. The experiment is not "MCP only". It is whether semantic navigation changes the amount and quality of exploration.
+It may still use text search afterward. The experiment is not "MCP only". It tests whether semantic navigation changes the amount and quality of exploration.
 
 ## Record
 
@@ -84,10 +85,11 @@ Copy [`../../benchmarks/run-template.md`](../../benchmarks/run-template.md) for 
 
 ## Fairness rules
 
-- Same starting commit.
+- Same source commit.
 - Same model and thinking level.
 - Same task wording.
 - Fresh conversation/session for each run.
+- Separate fixture directories.
 - No transcript sharing between runs.
 - No manual hints after the run starts.
 - Do not count dependency installation time as agent navigation time.
