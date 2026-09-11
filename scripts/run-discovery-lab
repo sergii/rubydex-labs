@@ -10,15 +10,11 @@ case "$mode" in
     label="A"
     profile="control"
     task_file="${repo_root}/labs/03-discovery-scaling/task.md"
-    mcp_enabled="false"
-    mcp_required="false"
     ;;
   B|b)
     label="B"
     profile="semantic"
     task_file="${repo_root}/labs/03-discovery-scaling/task-semantic-first.md"
-    mcp_enabled="true"
-    mcp_required="true"
     ;;
   *)
     echo "Usage: $0 A|B [small|medium|large]" >&2
@@ -60,11 +56,40 @@ git -c user.name="Rubydex Labs" -c user.email="rubydex-labs@example.invalid" \
 
 prompt="$(cat "$task_file")"
 
-# Discovery runs are read-only and should never stop for shell approvals.
-# Rubydex itself is explicitly auto-approved because its MCP tools are read-only
-# for this benchmark. Known unrelated user MCP servers are disabled so their
-# authentication/startup state does not contaminate timing.
-mcp_config="mcp_servers.rubydex={command=\"bundle\", args=[\"exec\",\"rdx\",\"mcp\"], cwd=\"${target}\", enabled=${mcp_enabled}, required=${mcp_required}, default_tools_approval_mode=\"approve\"}"
+# Use a benchmark-only CODEX_HOME so unrelated user MCP servers, hooks, and
+# malformed global config cannot affect startup, approvals, or timing.
+global_codex_home="${CODEX_HOME:-${HOME}/.codex}"
+benchmark_codex_home="/tmp/rubydex-codex-home-${label}-${scale}"
+rm -rf "$benchmark_codex_home"
+mkdir -p "$benchmark_codex_home"
+
+# Reuse the existing ChatGPT/Codex login without importing the user's config.
+if [[ -f "${global_codex_home}/auth.json" ]]; then
+  ln -s "${global_codex_home}/auth.json" "${benchmark_codex_home}/auth.json"
+fi
+
+benchmark_model="${RUBYDEX_LABS_MODEL:-gpt-6-astra}"
+benchmark_reasoning="${RUBYDEX_LABS_REASONING:-xhigh}"
+
+cat > "${benchmark_codex_home}/config.toml" <<EOF
+model = "${benchmark_model}"
+model_reasoning_effort = "${benchmark_reasoning}"
+approval_policy = "never"
+sandbox_mode = "read-only"
+EOF
+
+if [[ "$label" == "B" ]]; then
+  cat >> "${benchmark_codex_home}/config.toml" <<EOF
+
+[mcp_servers.rubydex]
+command = "bundle"
+args = ["exec", "rdx", "mcp"]
+cwd = "${target}"
+enabled = true
+required = true
+default_tools_approval_mode = "approve"
+EOF
+fi
 
 cat <<EOF
 
@@ -72,21 +97,16 @@ Starting discovery Lab ${label}
 Scale: ${scale}
 Workspace: ${target}
 Condition: ${profile}
-Codex model/effort: inherited from your current Codex configuration
+Codex model: ${benchmark_model}
+Codex reasoning: ${benchmark_reasoning}
+Codex config: isolated benchmark CODEX_HOME
 
 The timed run includes Codex and, for B, Rubydex MCP startup/indexing.
 EOF
 
 SECONDS=0
 set +e
-codex \
-  -C "$target" \
-  -c 'approval_policy="never"' \
-  -c 'sandbox_mode="read-only"' \
-  -c 'mcp_servers.cloudflare-api.enabled=false' \
-  -c 'mcp_servers.reui.enabled=false' \
-  -c "$mcp_config" \
-  "$prompt"
+CODEX_HOME="$benchmark_codex_home" codex -C "$target" "$prompt"
 codex_status=$?
 set -e
 elapsed="$SECONDS"
