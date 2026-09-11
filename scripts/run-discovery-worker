@@ -11,13 +11,18 @@ started_epoch="$(date +%s)"
 printf 'running\n' > "${run_dir}/state"
 printf '%s\n' "$started_at" > "${run_dir}/started_at"
 
+# Feed the prompt through stdin explicitly. In non-TTY/background environments,
+# passing a positional prompt can make Codex also inspect stdin and emit
+# "Reading additional input from stdin...". Using `-` makes stdin the single,
+# unambiguous prompt source and the file redirect closes it at EOF.
 set +e
 CODEX_HOME="$codex_home" codex exec \
   --ephemeral \
   --json \
   --cd "$target" \
   --output-last-message "${run_dir}/final.txt" \
-  "$(cat "$prompt_file")" \
+  - \
+  < "$prompt_file" \
   > "${run_dir}/events.jsonl" \
   2> "${run_dir}/stderr.log"
 status=$?
@@ -54,12 +59,15 @@ item_types = Counter()
 turn_completed = False
 turn_failed = False
 top_level_errors = []
+raw_non_json = []
 
 if events_path.exists():
     for raw in events_path.read_text(errors="replace").splitlines():
         try:
             event = json.loads(raw)
         except json.JSONDecodeError:
+            if raw.strip():
+                raw_non_json.append(raw.strip())
             continue
 
         event_type = event.get("type")
@@ -72,6 +80,10 @@ if events_path.exists():
                 usage[key] = int(event_usage.get(key, 0) or 0)
         elif event_type == "turn.failed":
             turn_failed = True
+            error = event.get("error") or {}
+            message = error.get("message") if isinstance(error, dict) else None
+            if message:
+                top_level_errors.append(message)
         elif event_type == "error":
             top_level_errors.append(event.get("message", "unknown error"))
         elif event_type in {"item.started", "item.updated", "item.completed"}:
@@ -79,6 +91,9 @@ if events_path.exists():
             item_type = item.get("type")
             if item_type:
                 item_types[item_type] += 1
+
+stderr_path = run_dir / "stderr.log"
+stderr_text = stderr_path.read_text(errors="replace") if stderr_path.exists() else ""
 
 summary = {
     "status": "completed" if exit_code == 0 and turn_completed and not turn_failed else "failed",
@@ -93,6 +108,8 @@ summary = {
     },
     "item_event_counts": dict(sorted(item_types.items())),
     "top_level_errors": top_level_errors,
+    "non_json_output": raw_non_json[-20:],
+    "stderr": stderr_text[-4000:],
 }
 
 (run_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
@@ -108,10 +125,12 @@ lines = [
     f"output_tokens: {usage['output_tokens']}",
     f"reasoning_output_tokens: {usage['reasoning_output_tokens']}",
 ]
+if top_level_errors:
+    lines.append("errors: " + " | ".join(top_level_errors))
 (run_dir / "summary.txt").write_text("\n".join(lines) + "\n")
 PY
 
-if [[ "$status" -eq 0 ]]; then
+if [[ "$status" -eq 0 ]] && grep -q '"type":"turn.completed"' "${run_dir}/events.jsonl" 2>/dev/null; then
   printf 'completed\n' > "${run_dir}/state"
 else
   printf 'failed\n' > "${run_dir}/state"
