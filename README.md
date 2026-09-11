@@ -6,12 +6,13 @@ The repository is intentionally built as a controlled experiment. The same Rails
 
 ## What we want to learn
 
-Rubydex turns a Ruby workspace into a queryable semantic graph. These labs test two concrete claims:
+Rubydex turns a Ruby workspace into a queryable semantic graph. These labs test three concrete claims:
 
 1. **Structural checks** - whole-codebase rules can be expressed statically instead of booting Rails and inspecting runtime state.
-2. **Agent navigation** - a coding agent with semantic code intelligence can inspect fewer files, make fewer search calls, and miss fewer references than an agent using text search alone.
+2. **Agent navigation** - a coding agent can use semantic code intelligence to resolve declarations and references deterministically.
+3. **Scaling** - semantic navigation should become more valuable as same-named declarations, lexical ambiguity, and textual noise grow.
 
-This repository is not a Rubydex tutorial and is not intended to prove that Rubydex wins every task. Tiny or text-local tasks should often show little or no benefit. We want to find the boundary where semantic analysis becomes materially useful.
+This repository is not a Rubydex tutorial and is not intended to prove that Rubydex wins every task. Tiny or text-local tasks may show little or no benefit. We want to find the boundary where semantic analysis becomes materially useful.
 
 ## Labs
 
@@ -27,25 +28,34 @@ See [`labs/01-structural-linting/README.md`](labs/01-structural-linting/README.m
 
 ### Lab 02 - Agent navigation
 
-Give two fresh coding-agent sessions exactly the same task:
+Rename `Inventory::Reservation` to `Inventory::Allocation` without touching the unrelated `Admin::Reservation`.
 
-> Rename `Inventory::Reservation` to `Inventory::Allocation` and update every real reference without changing the unrelated `Admin::Reservation`.
-
-The fixture contains relative constant lookup, fully qualified references, inheritance, and deliberate textual noise.
-
-Control:
+The A/B/C runs compare:
 
 ```text
-rg / grep -> read files -> infer relationships -> edit
+A  text-only navigation
+B  Rubydex available, agent chooses strategy
+C  required semantic-first navigation
 ```
 
-Treatment:
+The first measured runs showed that Rubydex returned the exact seven references immediately, but end-to-end task time was still dominated by the coding agent's source inspection and Rails verification behavior.
 
-```text
-Rubydex semantic query -> read relevant files -> edit
+See [`labs/02-agent-navigation/README.md`](labs/02-agent-navigation/README.md) and [`benchmarks/results/2026-09-12-lab-02-agent-navigation-abc.md`](benchmarks/results/2026-09-12-lab-02-agent-navigation-abc.md).
+
+### Lab 03 - Discovery scaling
+
+Isolate semantic discovery from editing and runtime verification.
+
+The agent must only identify every reference that resolves to `Inventory::Reservation`. A deterministic fixture generator adds unrelated `Reservation` declarations, unqualified references, inheritance, and literal `"Inventory::Reservation"` strings.
+
+Run the text-only and semantic-first conditions at `small`, `medium`, or `large` scale:
+
+```bash
+bin/run-discovery-a medium
+bin/run-discovery-b medium
 ```
 
-See [`labs/02-agent-navigation/README.md`](labs/02-agent-navigation/README.md).
+See [`labs/03-discovery-scaling/README.md`](labs/03-discovery-scaling/README.md).
 
 ## Repository layout
 
@@ -55,19 +65,22 @@ See [`labs/02-agent-navigation/README.md`](labs/02-agent-navigation/README.md).
 ├── config/                      # Minimal Rails application
 ├── labs/
 │   ├── 01-structural-linting/
-│   └── 02-agent-navigation/
+│   ├── 02-agent-navigation/
+│   └── 03-discovery-scaling/
 ├── rubydex_linter/rules/        # Custom Rubydex structural rules
-├── scripts/                     # Reproducible experiment helpers
+├── scripts/                     # Reproducible fixture and runner helpers
 ├── test/structural/             # Runtime control checks
-├── benchmarks/                  # Result templates and experiment notes
+├── benchmarks/                  # Results and experiment notes
 └── rubydex.toml
 ```
 
-## Experimental rule
+## Experimental rules
 
-Do **not** modify the fixture between the control and treatment runs of the same experiment.
+Do not modify a fixture between control and treatment runs of the same experiment.
 
-For the agent benchmark, use `scripts/prepare-agent-fixture` to create isolated workspaces without the repository's explanatory documentation. Do not let the treatment session see notes, transcripts, or patches from the control session.
+Agent benchmarks use isolated workspaces without this repository's explanatory documentation. Do not share transcripts or patches between conditions before both runs are complete.
+
+Keep model and reasoning effort identical between compared runs.
 
 ## Metrics
 
@@ -82,9 +95,9 @@ Record at least:
 | Search/tool calls | Proxy for interaction overhead |
 | Tokens used | Direct agent cost/context pressure |
 | Wall-clock duration | User-facing latency |
-| Time to first correct hypothesis | How quickly the agent forms the right model |
+| Time to complete dependency set | Measures navigation efficiency |
 
-Use [`benchmarks/run-template.md`](benchmarks/run-template.md) for each run.
+Use [`benchmarks/run-template.md`](benchmarks/run-template.md) for manual runs.
 
 ## Setup
 
@@ -115,13 +128,11 @@ Run the runtime structural check:
 bundle exec rails test test/structural/no_conflicting_fulfillment_mixins_test.rb
 ```
 
-Start the Rubydex MCP server for an AI client:
+Start the Rubydex MCP server:
 
 ```bash
 bundle exec rdx mcp
 ```
-
-For clients that support command-based MCP configuration, configure the project-local server command as `bundle exec rdx mcp`.
 
 ## References
 
