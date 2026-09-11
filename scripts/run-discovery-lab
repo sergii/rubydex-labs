@@ -38,12 +38,18 @@ for command_name in bundle codex git python3; do
   fi
 done
 
-target="/tmp/rubydex-discovery-${label}-${scale}"
+run_id="$(date +%Y%m%d-%H%M%S)-$$"
+run_dir="/tmp/rubydex-discovery-runs/${label}-${scale}-${run_id}"
+target="/tmp/rubydex-discovery-${label}-${scale}-${run_id}"
+benchmark_codex_home="/tmp/rubydex-codex-home-${label}-${scale}-${run_id}"
+latest_link="/tmp/rubydex-discovery-${label}-${scale}-latest"
+
+mkdir -p "$run_dir"
 "${repo_root}/scripts/prepare-discovery-fixture" "$target" "$profile" "$scale"
 
 cd "$target"
 
-# Dependency setup is outside the measured discovery run.
+# Dependency setup is outside the measured Codex run.
 if ! bundle check >/dev/null 2>&1; then
   echo "Installing dependencies for discovery ${label}/${scale}..."
   bundle install
@@ -54,12 +60,9 @@ git add -A
 git -c user.name="Rubydex Labs" -c user.email="rubydex-labs@example.invalid" \
   commit -qm "Baseline discovery ${label}/${scale} fixture"
 
-prompt="$(cat "$task_file")"
-
 # Use a benchmark-only CODEX_HOME so unrelated user MCP servers, hooks, and
 # malformed global config cannot affect startup, approvals, or timing.
 global_codex_home="${CODEX_HOME:-${HOME}/.codex}"
-benchmark_codex_home="/tmp/rubydex-codex-home-${label}-${scale}"
 rm -rf "$benchmark_codex_home"
 mkdir -p "$benchmark_codex_home"
 
@@ -91,38 +94,52 @@ default_tools_approval_mode = "approve"
 EOF
 fi
 
-cat <<EOF
-
-Starting discovery Lab ${label}
-Scale: ${scale}
-Workspace: ${target}
-Condition: ${profile}
-Codex model: ${benchmark_model}
-Codex reasoning: ${benchmark_reasoning}
-Codex config: isolated benchmark CODEX_HOME
-
-The timed run includes Codex and, for B, Rubydex MCP startup/indexing.
+cp "$task_file" "${run_dir}/prompt.md"
+cat > "${run_dir}/metadata.txt" <<EOF
+run_id: ${run_id}
+condition: ${label}
+profile: ${profile}
+scale: ${scale}
+workspace: ${target}
+model: ${benchmark_model}
+reasoning: ${benchmark_reasoning}
+codex_home: ${benchmark_codex_home}
 EOF
 
-SECONDS=0
-set +e
-CODEX_HOME="$benchmark_codex_home" codex -C "$target" "$prompt"
-codex_status=$?
-set -e
-elapsed="$SECONDS"
+# Point status commands at this run. The run itself uses unique directories, so
+# starting another benchmark cannot overwrite a currently running fixture.
+ln -sfn "$run_dir" "$latest_link"
+
+printf 'starting\n' > "${run_dir}/state"
+
+nohup bash "${repo_root}/scripts/run-discovery-worker" \
+  "$target" \
+  "$benchmark_codex_home" \
+  "${run_dir}/prompt.md" \
+  "$run_dir" \
+  > "${run_dir}/worker.log" \
+  2>&1 \
+  < /dev/null &
+worker_pid=$!
+printf '%s\n' "$worker_pid" > "${run_dir}/pid"
 
 cat <<EOF
 
-Discovery Lab ${label}/${scale} finished
-Elapsed Codex session time: ${elapsed}s
-Codex exit status: ${codex_status}
+Started discovery Lab ${label}/${scale} in background.
+PID: ${worker_pid}
+Model: ${benchmark_model}
+Reasoning: ${benchmark_reasoning}
 Workspace: ${target}
+Run data: ${run_dir}
+
+You can close this terminal or keep working. No Codex TUI interaction is required.
+Check progress/result with:
+
+  bin/discovery-status ${label} ${scale}
+
+Raw files:
+  ${run_dir}/events.jsonl
+  ${run_dir}/final.txt
+  ${run_dir}/summary.json
+  ${run_dir}/stderr.log
 EOF
-
-if [[ -n "$(git status --short)" ]]; then
-  echo
-  echo "WARNING: discovery task modified the fixture:"
-  git status --short
-fi
-
-exit "$codex_status"
