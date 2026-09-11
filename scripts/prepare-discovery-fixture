@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+target="${1:?target directory is required}"
+profile="${2:?control or semantic profile is required}"
+scale="${3:-medium}"
+
+case "$scale" in
+  small)
+    units=0
+    ;;
+  medium)
+    units=40
+    ;;
+  large)
+    units=150
+    ;;
+  *)
+    echo "Usage: $0 TARGET control|semantic small|medium|large" >&2
+    exit 2
+    ;;
+esac
+
+"${repo_root}/scripts/prepare-agent-fixture" "$target" "$profile"
+
+python3 - "$target" "$units" <<'PY'
+from pathlib import Path
+import sys
+
+target = Path(sys.argv[1])
+units = int(sys.argv[2])
+
+for index in range(1, units + 1):
+    namespace = f"NoiseDomain{index:04d}"
+    directory = f"noise_domain_{index:04d}"
+
+    model_dir = target / "app" / "models" / directory
+    service_dir = target / "app" / "services" / directory
+    model_dir.mkdir(parents=True, exist_ok=True)
+    service_dir.mkdir(parents=True, exist_ok=True)
+
+    (model_dir / "reservation.rb").write_text(
+        f'''module {namespace}\n  class Reservation < ApplicationRecord\n  end\nend\n'''
+    )
+
+    (model_dir / "priority_reservation.rb").write_text(
+        f'''module {namespace}\n  class PriorityReservation < Reservation\n  end\nend\n'''
+    )
+
+    (service_dir / "consumer.rb").write_text(
+        f'''module {namespace}\n  class Consumer\n    LEGACY_EXPORT_KEY = "Inventory::Reservation"\n\n    def reservation_class\n      Reservation\n    end\n\n    def build(attributes = {{}})\n      Reservation.new(attributes)\n    end\n  end\nend\n'''
+    )
+PY
+
+cat <<EOF
+Prepared discovery fixture:
+  target:  $target
+  profile: $profile
+  scale:   $scale
+  noise domains: $units
+  extra Ruby files: $((units * 3))
+EOF
