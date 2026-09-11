@@ -99,19 +99,48 @@ MCP tool call requires approval, but approval policy is never
 
 The resulting `30 s / 9,609 tokens` are **not benchmark measurements** and must not be compared with A. They measure a configuration failure, not semantic navigation.
 
-## Runner correction after second attempt
+## Third launch attempt - invalid before Codex startup
 
-Codex supports MCP-specific tool approval policy. Discovery runs now use:
+An attempted fix tried to disable unrelated global MCP servers through runtime overrides. Codex still parsed the user's global configuration before applying those overrides and exited immediately because the existing `cloudflare-api` entry used an invalid transport for this Codex version:
 
 ```text
-global approval_policy = never
-global sandbox_mode = read-only
-Rubydex default_tools_approval_mode = approve
+Error loading config.toml: invalid transport
+in `mcp_servers.cloudflare-api`
 ```
 
-This preserves a non-interactive, read-only benchmark while explicitly allowing the Rubydex MCP calls.
+This attempt consumed effectively no benchmark time and produced no benchmark result.
 
-The runner also disables the known unrelated `cloudflare-api` and `reui` MCP servers for the benchmark invocation so their authentication/startup state does not contaminate the run.
+## Final runner isolation
+
+Discovery runners now use a dedicated temporary `CODEX_HOME` for each run instead of merging with the user's global Codex configuration.
+
+The benchmark home contains only:
+
+```text
+model = gpt-6-astra
+model_reasoning_effort = xhigh
+approval_policy = never
+sandbox_mode = read-only
+```
+
+For semantic runs it additionally contains only the project-local Rubydex MCP server with:
+
+```text
+enabled = true
+required = true
+default_tools_approval_mode = approve
+```
+
+If the user's normal Codex login is stored in `~/.codex/auth.json`, the benchmark home symlinks that auth file but does not import `~/.codex/config.toml`, unrelated MCP servers, hooks, or other user configuration.
+
+The model and reasoning level can be overridden explicitly with:
+
+```text
+RUBYDEX_LABS_MODEL
+RUBYDEX_LABS_REASONING
+```
+
+This makes A and B reproducible and prevents unrelated MCP configuration from affecting startup or timing.
 
 ## Current signal
 
@@ -120,6 +149,6 @@ At medium scale:
 - correctness: text and Rubydex both achieved 7/7 in valid runs
 - token/context efficiency: the first valid Rubydex run used about 36.5% fewer total tokens than the first text run
 - repeatability: text navigation already shows meaningful run-to-run variance
-- latency: still inconclusive until a clean Rubydex repeat completes without approval interaction
+- latency: still inconclusive until a clean Rubydex repeat completes under the isolated Codex configuration
 
-Next step: run **only B/medium once** with the corrected MCP-specific auto-approval. If it succeeds cleanly, compare it against both valid A runs before deciding whether another paired medium run is worth the usage cost.
+Next step: run **only B/medium once** with the isolated benchmark Codex home. If it succeeds cleanly, compare it against both valid A runs before deciding whether to move to `large`.
