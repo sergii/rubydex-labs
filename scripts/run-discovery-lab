@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mode="${1:-}"
+scale="${2:-medium}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+case "$mode" in
+  A|a)
+    label="A"
+    profile="control"
+    task_file="${repo_root}/labs/03-discovery-scaling/task.md"
+    mcp_enabled="false"
+    mcp_required="false"
+    ;;
+  B|b)
+    label="B"
+    profile="semantic"
+    task_file="${repo_root}/labs/03-discovery-scaling/task-semantic-first.md"
+    mcp_enabled="true"
+    mcp_required="true"
+    ;;
+  *)
+    echo "Usage: $0 A|B [small|medium|large]" >&2
+    exit 2
+    ;;
+esac
+
+case "$scale" in
+  small|medium|large)
+    ;;
+  *)
+    echo "Unknown scale: $scale" >&2
+    exit 2
+    ;;
+esac
+
+for command_name in bundle codex git python3; do
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    echo "Missing required command: $command_name" >&2
+    exit 1
+  fi
+done
+
+target="/tmp/rubydex-discovery-${label}-${scale}"
+"${repo_root}/scripts/prepare-discovery-fixture" "$target" "$profile" "$scale"
+
+cd "$target"
+
+# Dependency setup is outside the measured discovery run.
+if ! bundle check >/dev/null 2>&1; then
+  echo "Installing dependencies for discovery ${label}/${scale}..."
+  bundle install
+fi
+
+git init -q
+git add -A
+git -c user.name="Rubydex Labs" -c user.email="rubydex-labs@example.invalid" \
+  commit -qm "Baseline discovery ${label}/${scale} fixture"
+
+prompt="$(cat "$task_file")"
+mcp_config="mcp_servers.rubydex={command=\"bundle\", args=[\"exec\",\"rdx\",\"mcp\"], cwd=\"${target}\", enabled=${mcp_enabled}, required=${mcp_required}}"
+
+cat <<EOF
+
+Starting discovery Lab ${label}
+Scale: ${scale}
+Workspace: ${target}
+Condition: ${profile}
+Codex model/effort: inherited from your current Codex configuration
+
+The timed run includes Codex and, for B, Rubydex MCP startup/indexing.
+EOF
+
+SECONDS=0
+set +e
+codex -C "$target" -c "$mcp_config" "$prompt"
+codex_status=$?
+set -e
+elapsed="$SECONDS"
+
+cat <<EOF
+
+Discovery Lab ${label}/${scale} finished
+Elapsed Codex session time: ${elapsed}s
+Codex exit status: ${codex_status}
+Workspace: ${target}
+EOF
+
+if [[ -n "$(git status --short)" ]]; then
+  echo
+  echo "WARNING: discovery task modified the fixture:"
+  git status --short
+fi
+
+exit "$codex_status"
