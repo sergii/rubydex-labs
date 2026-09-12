@@ -6,6 +6,10 @@ case "$kind" in
   scout)
     latest="/tmp/rubydex-real-discourse-scout-latest"
     ;;
+  impact-scout|impact)
+    kind="impact-scout"
+    latest="/tmp/rubydex-real-discourse-impact-scout-latest"
+    ;;
   A|a)
     kind="A"
     latest="/tmp/rubydex-real-discourse-A-latest"
@@ -15,7 +19,7 @@ case "$kind" in
     latest="/tmp/rubydex-real-discourse-B-latest"
     ;;
   *)
-    echo "Usage: $0 scout|A|B" >&2
+    echo "Usage: $0 scout|impact-scout|A|B" >&2
     exit 2
     ;;
 esac
