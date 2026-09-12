@@ -38,7 +38,8 @@ for label in a b; do
     run_dir="$(cat "$run_dir_file")"
     condition_state="unknown"
     [[ -f "${run_dir}/state" ]] && condition_state="$(cat "${run_dir}/state")"
-    echo "${label^^}: ${condition_state} - ${run_dir}"
+    label_upper="$(printf '%s' "$label" | tr '[:lower:]' '[:upper:]')"
+    echo "${label_upper}: ${condition_state} - ${run_dir}"
   fi
 done
 
