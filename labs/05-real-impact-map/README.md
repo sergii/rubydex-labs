@@ -22,13 +22,13 @@ Instead of asking only for exact references, the agent must build a compact impa
 
 ## Required impact map
 
-The final benchmark task will ask for:
+The benchmark asks for:
 
 1. declaration location;
-2. descendants / subclasses of `Categories::Types::Base`;
+2. named descendants / subclasses of `Categories::Types::Base`;
 3. direct production constant users;
 4. plugin extensions / subclasses;
-5. relevant spec files that directly exercise or reference the target;
+5. spec files containing direct references to the target;
 6. a small read-first file set for an engineer preparing to change the target, with one short reason per file.
 
 The agent must not edit code, boot Rails, run tests, or install dependencies.
@@ -49,7 +49,7 @@ This is closer to how a coding agent navigates a mature Rails application before
 
 ## Phase 1 - semantic scout
 
-The scout is not a benchmark measurement. It establishes a frozen structural ground truth using Rubydex and source spot-checks.
+The scout is not a benchmark measurement. It establishes frozen structural ground truth using Rubydex and source spot-checks.
 
 Run:
 
@@ -63,28 +63,77 @@ Check later with:
 bin/real-discourse-status impact-scout
 ```
 
-The scout should report exact descendants, exact constant references grouped by core/plugin/spec, and a candidate read-first set. After review, the structural facts will be frozen before any A/B run.
+The completed scout returned 19 descendant entries and 21 resolved references. Because the benchmark prompt asks for named descendants, the scoring set excludes the target declaration itself and anonymous `Class.new(...)` descendants.
+
+Frozen scoring data lives in:
+
+```text
+labs/05-real-impact-map/ground-truth.json
+labs/05-real-impact-map/scout-result.md
+```
 
 ## Phase 2 - benchmark
 
-After the scout result is frozen, Lab 05 will use the same counterbalanced protocol as Lab 04:
+Conditions:
 
 ```text
 A = normal repository navigation, no Rubydex
 B = Rubydex semantic-first navigation
 ```
 
-Both conditions will use the same pinned repository revision, model, reasoning level, read-only headless runner, and task wording apart from the semantic-first instruction in B.
+Both use the same pinned repository revision, model, reasoning level, read-only headless runner, and frozen task wording apart from B's semantic-first instruction.
 
-Run order will be counterbalanced with `AB` and `BA` pairs so filesystem/order effects are visible.
+Run A -> B:
 
-## Scoring plan
+```bash
+bin/run-real-impact-pair AB
+```
 
-Structural facts will be scored automatically where an exact set is meaningful:
+Check progress/result:
 
-- descendant recall / false positives;
-- direct production-reference recall / false positives;
-- plugin-extension recall / false positives;
-- relevant direct-reference spec-file recall / false positives.
+```bash
+bin/real-impact-pair-status AB
+```
 
-The read-first set is intentionally a prioritization task, so it will not be treated as a single exact ground-truth set. It will instead be evaluated for coverage of frozen must-read categories, size, and justification quality.
+After it completes, counterbalance the order:
+
+```bash
+bin/run-real-impact-pair BA
+bin/real-impact-pair-status BA
+```
+
+Do not run AB and BA simultaneously because both conditions use the same pinned checkout and reset/clean it before each run.
+
+## Frozen structural ground truth
+
+The automatic scorer expects:
+
+- declaration: 1 exact location
+- named descendants: 5
+- direct production references: 5
+- plugin extensions: 3
+- direct-reference spec files: 8
+
+The read-first set is not scored as one exact file set. Instead, it is evaluated against five frozen coverage categories:
+
+1. target implementation
+2. core subclass
+3. at least one plugin extension
+4. direct base spec
+5. at least one representative integration/direct-reference spec
+
+The task allows at most 12 read-first files. The scorer also records whether every entry includes a non-empty reason.
+
+## Metrics
+
+The pair harness records:
+
+- exact declaration correctness
+- recall and false positives for each structural set
+- whether all structural sets are exact
+- read-first category coverage and set size
+- elapsed model-session time
+- total/input/cached/uncached/output/reasoning tokens
+- both final answers for manual inspection
+
+Rubydex MCP startup/indexing remains inside B's measured time.
