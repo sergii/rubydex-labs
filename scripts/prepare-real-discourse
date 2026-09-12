@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+sha="c89b1a0506a3ec0a249b7f23ac86763b358dc177"
+cache_root="/tmp/rubydex-real-cache"
+target="${cache_root}/discourse-${sha}"
+
+mkdir -p "$cache_root"
+
+if [[ ! -d "${target}/.git" ]]; then
+  rm -rf "$target"
+  mkdir -p "$target"
+  git -C "$target" init -q
+  git -C "$target" remote add origin https://github.com/discourse/discourse.git
+  echo "Fetching pinned Discourse revision ${sha}..." >&2
+  git -C "$target" fetch --depth 1 origin "$sha"
+  git -C "$target" checkout -q --detach FETCH_HEAD
+fi
+
+actual="$(git -C "$target" rev-parse HEAD)"
+if [[ "$actual" != "$sha" ]]; then
+  echo "Unexpected Discourse revision: ${actual} (expected ${sha})" >&2
+  exit 1
+fi
+
+printf '%s\n' "$target"
