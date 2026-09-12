@@ -23,4 +23,10 @@ if [[ "$actual" != "$sha" ]]; then
   exit 1
 fi
 
+# Every scout/benchmark condition starts from the exact pinned tree. This also
+# removes any untracked semantic-index/cache artifacts left by an earlier run,
+# so AB and BA conditions cannot contaminate one another through the workspace.
+git -C "$target" reset --hard -q "$sha"
+git -C "$target" clean -fdxq
+
 printf '%s\n' "$target"
