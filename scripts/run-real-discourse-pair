@@ -28,9 +28,10 @@ target: Categories::Types::Base
 order: ${order}
 model: ${RUBYDEX_LABS_MODEL:-gpt-5.6-luna}
 reasoning: ${RUBYDEX_LABS_REASONING:-medium}
+scoring: standalone_path_line_v2
 EOF
 
-nohup bash "${repo_root}/scripts/run-real-discourse-pair-worker" \
+nohup bash "${repo_root}/scripts/run-real-discourse-pair-worker-v2" \
   "$order" \
   "$pair_dir" \
   > "${pair_dir}/worker.log" \
