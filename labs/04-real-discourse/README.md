@@ -44,41 +44,64 @@ That combination creates real constant-resolution ambiguity without manufacturin
 
 The scout is not a benchmark measurement. It uses Rubydex to establish the semantic reference set and codebase statistics for the pinned revision.
 
-Run:
+The completed scout indexed:
 
-```bash
-bin/scout-real-discourse
+```text
+15,130 files
+137,534 declarations
+145,449 definitions
+453,208 constant references
+1,559,344 method references
 ```
 
-Then inspect:
+It resolved the target to `app/services/categories/types/base.rb:5`, found 21 resolved constant references, and found 2,574 visible exact-name declaration matches for `Base`.
 
-```bash
-bin/real-discourse-status scout
-```
-
-The scout result is used to freeze the ground truth before any timed A/B comparison.
+The 21-reference set is frozen in `ground-truth.txt`; the full scout summary is in `scout-result.md`.
 
 ## Phase 2 - benchmark
 
-After the scout output is reviewed and the reference set is frozen in this lab, run the same discovery task under two conditions:
+The same discovery task runs under two conditions:
 
 - A: normal text/file navigation, no Rubydex MCP
 - B: Rubydex semantic-first navigation
 
-Both conditions will use the same model, reasoning level, pinned Discourse revision, and read-only headless Codex runner.
+Both use the same model, reasoning level, pinned Discourse revision, read-only headless Codex runner, and exact task target. The frozen ground truth is used only by the post-run scoring harness and is not copied into the benchmark workspace or prompt.
+
+Run an A -> B pair:
+
+```bash
+bin/run-real-discourse-pair AB
+```
+
+Check it later with:
+
+```bash
+bin/real-discourse-pair-status AB
+```
+
+Then counterbalance the order:
+
+```bash
+bin/run-real-discourse-pair BA
+bin/real-discourse-pair-status BA
+```
+
+Each condition resets and cleans the pinned checkout before starting. This removes untracked index/cache artifacts from earlier conditions. Running both `AB` and `BA` also helps expose filesystem-cache or order effects.
 
 The task is discovery only: no edits, Rails boot, tests, or dependency installation inside the timed model run.
 
 ## Metrics
 
-Record:
+The pair harness records:
 
-- exact-reference recall
-- false positives
+- exact-reference recall against the 21 frozen references
+- false positives and precision
+- exact-answer status
 - elapsed model-session time
 - total/input/cached/uncached/output/reasoning tokens
-- search/tool behavior
-- number of source files inspected when available
+- both final answers for manual inspection
+
+Rubydex MCP startup/indexing remains inside B's measured session time; it is not pre-subtracted.
 
 ## Important caveat
 
@@ -87,4 +110,4 @@ The scout uses Rubydex to establish semantic ground truth, so the final benchmar
 1. Does Rubydex let the agent reach Rubydex's resolved-reference set more cheaply?
 2. Are those resolved references actually correct Ruby semantics?
 
-Before publishing a broad claim, the frozen ground truth should be independently spot-checked against source structure and, where practical, another implementation or runtime behavior.
+The target and representative references were independently source-spot-checked before the benchmark, including the unqualified `Categories::Types::Discussion < Base` reference and fully-qualified plugin subclasses. A broad publication claim would still benefit from independent verification of the complete 21-reference set.
