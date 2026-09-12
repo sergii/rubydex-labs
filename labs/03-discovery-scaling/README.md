@@ -45,24 +45,37 @@ The real target remains the same seven references from Lab 02.
 
 ## Run
 
-Start with medium:
+Single conditions can be started headlessly:
 
 ```bash
 bin/run-discovery-a medium
 bin/run-discovery-b medium
 ```
 
-Then repeat at other scales only if useful:
+Check them with:
 
 ```bash
-bin/run-discovery-a small
-bin/run-discovery-b small
-
-bin/run-discovery-a large
-bin/run-discovery-b large
+bin/discovery-status A medium
+bin/discovery-status B medium
 ```
 
-Use fresh Codex sessions. Keep the same model and effort level for A and B.
+For a clean latency comparison, prefer the sequential pair runner. It runs A to completion, then B, and builds a comparison automatically:
+
+```bash
+bin/run-discovery-pair large
+bin/discovery-pair-status large
+```
+
+The pair runner records JSONL Codex events, final answers, token usage, exact run directories, ground-truth reference recall, and a Markdown/JSON comparison.
+
+The benchmark currently defaults to:
+
+```text
+model = gpt-5.6-luna
+reasoning = medium
+```
+
+A and B use isolated temporary `CODEX_HOME` directories so unrelated MCP servers, hooks, and global Codex configuration do not affect the experiment.
 
 ## Metrics
 
@@ -71,10 +84,49 @@ Record:
 - correctness / recall of the seven real references
 - false positives in the final answer
 - wall-clock time
-- token usage
+- total input and output tokens
+- cached and uncached input tokens
+- reasoning output tokens
 - search/tool calls
 - files inspected
 - whether the agent had the complete correct dependency set before source reads
+
+## Observed crossover
+
+The clean Luna runs show the expected scaling effect.
+
+| Scale | Correctness | Time A -> B | Total tokens A -> B | Uncached input A -> B |
+| --- | --- | --- | --- | --- |
+| `medium` | 7/7 vs 7/7 | 39 s -> 34 s (-12.8%) | 182,828 -> 136,346 (-25.4%) | 50,025 -> 21,109 (-57.8%) |
+| `large` | 7/7 vs 7/7 | 45 s -> 35 s (-22.2%) | 181,994 -> 97,914 (-46.2%) | 33,357 -> 21,450 (-35.7%) |
+
+The medium timing came from overlapping A/B processes, so treat its latency delta as directional. The large pair ran sequentially and is the cleaner latency comparison.
+
+At `large`, Rubydex preserved perfect recall while using 46.2% fewer total tokens and finishing 22.2% faster. The reasoning-token difference was only 2.4%, suggesting the main gain came from reducing code/context acquisition rather than eliminating model reasoning.
+
+See:
+
+- [`benchmarks/results/2026-09-12-lab-03-discovery-medium-first-run.md`](../../benchmarks/results/2026-09-12-lab-03-discovery-medium-first-run.md)
+- [`benchmarks/results/2026-09-12-lab-03-discovery-large-luna.md`](../../benchmarks/results/2026-09-12-lab-03-discovery-large-luna.md)
+
+## Interpretation
+
+The experiment supports a practical crossover rather than a universal Rubydex win:
+
+```text
+tiny codebase / low ambiguity
+    text search is cheap; semantic setup may not pay back
+
+medium ambiguity
+    semantic navigation begins reducing context cost materially
+
+large ambiguity
+    semantic navigation reduces both context cost and end-to-end latency
+```
+
+The mechanism is straightforward: text search returns plausible lexical matches and leaves identity resolution to the agent, while Rubydex returns references already bound to the exact Ruby declaration. As same-named declarations and textual noise increase, the amount of irrelevant context the text-navigation agent must inspect grows faster than the semantic query result.
+
+These are benchmark samples, not universal performance claims. Repetitions, other Ruby constructs, and real production repositories are the next step before generalizing the percentages.
 
 ## Ground truth
 
