@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+order="${1:-AB}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+case "$order" in
+  AB|BA) ;;
+  *) echo "Usage: $0 [AB|BA]" >&2; exit 2 ;;
+esac
+
+pair_id="$(date +%Y%m%d-%H%M%S)-$$"
+pair_dir="/tmp/rubydex-real-impact-pairs/${order}-${pair_id}"
+latest_link="/tmp/rubydex-real-impact-pair-${order}-latest"
+mkdir -p "$pair_dir"
+ln -sfn "$pair_dir" "$latest_link"
+printf 'starting\n' > "${pair_dir}/state"
+
+cat > "${pair_dir}/metadata.txt" <<EOF
+pair_id: ${pair_id}
+repository: discourse/discourse
+revision: c89b1a0506a3ec0a249b7f23ac86763b358dc177
+target: Categories::Types::Base
+lab: 05-real-impact-map
+order: ${order}
+model: ${RUBYDEX_LABS_MODEL:-gpt-5.6-luna}
+reasoning: ${RUBYDEX_LABS_REASONING:-medium}
+EOF
+
+nohup bash "${repo_root}/scripts/run-real-impact-pair-worker" \
+  "$order" "$pair_dir" \
+  > "${pair_dir}/worker.log" 2>&1 < /dev/null &
+pid=$!
+printf '%s\n' "$pid" > "${pair_dir}/pid"
+
+cat <<EOF
+
+Started real Discourse impact-map pair in background.
+PID: ${pid}
+Order: ${order}
+Repository: discourse/discourse
+Revision: c89b1a0506a3ec0a249b7f23ac86763b358dc177
+Target: Categories::Types::Base
+Model: ${RUBYDEX_LABS_MODEL:-gpt-5.6-luna}
+Reasoning: ${RUBYDEX_LABS_REASONING:-medium}
+Pair data: ${pair_dir}
+
+The two conditions run sequentially. No Codex TUI interaction is required.
+Check progress/result with:
+
+  bin/real-impact-pair-status ${order}
+EOF
