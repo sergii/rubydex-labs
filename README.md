@@ -2,15 +2,16 @@
 
 Hands-on experiments for understanding what [Shopify Rubydex](https://github.com/Shopify/rubydex) changes in a real Ruby/Rails development workflow.
 
-The repository is intentionally built as a controlled experiment. The same Rails codebase is used for both sides of every comparison. The only variable we change is the analysis/navigation capability available to the developer or coding agent.
+The repository is intentionally built as a controlled experiment. The same codebase and task are used for both sides of each comparison. The main variable is the analysis/navigation capability available to the coding agent.
 
 ## What we want to learn
 
-Rubydex turns a Ruby workspace into a queryable semantic graph. These labs test three concrete claims:
+Rubydex turns a Ruby workspace into a queryable semantic graph. These labs test concrete claims:
 
 1. **Structural checks** - whole-codebase rules can be expressed statically instead of booting Rails and inspecting runtime state.
 2. **Agent navigation** - a coding agent can use semantic code intelligence to resolve declarations and references deterministically.
 3. **Scaling** - semantic navigation should become more valuable as same-named declarations, lexical ambiguity, and textual noise grow.
+4. **Real-codebase impact mapping** - semantic structure can reduce the cost of building a useful pre-change mental model in a mature Rails monolith.
 
 This repository is not a Rubydex tutorial and is not intended to prove that Rubydex wins every task. Tiny or text-local tasks may show little or no benefit. We want to find the boundary where semantic analysis becomes materially useful.
 
@@ -22,84 +23,115 @@ Compare two implementations of the same architecture invariant:
 
 > A class must never have both `LegacyFulfillment` and `ModernFulfillment` in its ancestor chain.
 
-The fixture intentionally creates the conflict transitively across files. The control implementation boots Rails, eager-loads the application, and inspects Ruby ancestors at runtime. The treatment implementation asks the Rubydex graph the same structural question without booting the application.
-
 See [`labs/01-structural-linting/README.md`](labs/01-structural-linting/README.md).
 
 ### Lab 02 - Agent navigation
 
 Rename `Inventory::Reservation` to `Inventory::Allocation` without touching the unrelated `Admin::Reservation`.
 
-The A/B/C runs compare:
+The A/B/C runs compare text-only navigation, Rubydex-available navigation, and required semantic-first navigation.
 
-```text
-A  text-only navigation
-B  Rubydex available, agent chooses strategy
-C  required semantic-first navigation
-```
-
-The first measured runs showed that Rubydex returned the exact seven references immediately, but end-to-end task time was still dominated by the coding agent's source inspection and Rails verification behavior.
-
-See [`labs/02-agent-navigation/README.md`](labs/02-agent-navigation/README.md) and [`benchmarks/results/2026-09-12-lab-02-agent-navigation-abc.md`](benchmarks/results/2026-09-12-lab-02-agent-navigation-abc.md).
+See [`labs/02-agent-navigation/README.md`](labs/02-agent-navigation/README.md).
 
 ### Lab 03 - Discovery scaling
 
-Isolate semantic discovery from editing and runtime verification.
-
-The agent must only identify every reference that resolves to `Inventory::Reservation`. A deterministic fixture generator adds unrelated `Reservation` declarations, unqualified references, inheritance, and literal `"Inventory::Reservation"` strings.
-
-Run the text-only and semantic-first conditions at `small`, `medium`, or `large` scale:
-
-```bash
-bin/run-discovery-a medium
-bin/run-discovery-b medium
-```
+Isolate semantic discovery from editing and runtime verification with generated same-name and lexical-resolution noise.
 
 See [`labs/03-discovery-scaling/README.md`](labs/03-discovery-scaling/README.md).
+
+### Lab 04 - Real Discourse reference discovery
+
+Run exact constant-reference discovery against a pinned real `discourse/discourse` revision. The target is `Categories::Types::Base`; ground truth is frozen before A/B measurement.
+
+See [`labs/04-real-discourse/README.md`](labs/04-real-discourse/README.md).
+
+### Lab 05 - Real Discourse impact map
+
+Build a pre-change engineering impact map for `Categories::Types::Base`: named descendants, production users, plugin extensions, direct specs, and a compact read-first set.
+
+See [`labs/05-real-impact-map/README.md`](labs/05-real-impact-map/README.md).
+
+## Primary benchmark path: GitHub Actions
+
+Publishable Lab 04/05 runs should use the public GitHub Actions workflow rather than a developer laptop.
+
+Each A/B sample gets its own fresh GitHub-hosted `ubuntu-latest` VM. The default run is:
+
+```text
+3 × A — text/source navigation
+3 × B — Rubydex semantic-first
+```
+
+The jobs run independently, with at most two samples in parallel. They do not share a Rubydex index, Codex home, filesystem page cache, or local background processes.
+
+The workflow uses the official `openai/codex-action@v1`, an `OPENAI_API_KEY` GitHub Actions secret, `drop-sudo`, and a read-only Codex permission profile.
+
+Setup and usage:
+
+[`benchmarks/GITHUB_ACTIONS.md`](benchmarks/GITHUB_ACTIONS.md)
+
+A manual run is available from:
+
+```text
+GitHub → Actions → Rubydex benchmark → Run workflow
+```
+
+The benchmark can also be triggered by changing:
+
+```text
+benchmarks/requests/current.json
+```
+
+on `main`. This makes automated experiment iteration possible without a local terminal.
+
+## What the workflow records
+
+Per sample:
+
+- final answer;
+- model / reasoning / condition / repeat metadata;
+- exact correctness scoring against frozen ground truth;
+- Codex process elapsed time;
+- input tokens;
+- cached and uncached input tokens;
+- output tokens;
+- reasoning output tokens;
+- total tokens;
+- estimated API cost when pricing is known to the aggregator.
+
+The aggregate job produces median A/B metrics and writes them to the GitHub Actions Step Summary plus a downloadable `benchmark-report` artifact.
 
 ## Repository layout
 
 ```text
 .
-├── app/                         # Shared Rails fixture
-├── config/                      # Minimal Rails application
-├── labs/
-│   ├── 01-structural-linting/
-│   ├── 02-agent-navigation/
-│   └── 03-discovery-scaling/
-├── rubydex_linter/rules/        # Custom Rubydex structural rules
-├── scripts/                     # Reproducible fixture and runner helpers
-├── test/structural/             # Runtime control checks
-├── benchmarks/                  # Results and experiment notes
+├── .github/workflows/benchmark.yml # Ephemeral GitHub benchmark runner
+├── app/                            # Shared synthetic Rails fixture
+├── config/                         # Minimal Rails application
+├── labs/                           # Lab protocols, prompts, ground truth
+├── rubydex_linter/rules/           # Custom Rubydex structural rules
+├── scripts/                        # Local and CI runner/scoring helpers
+├── test/structural/                # Runtime control checks
+├── benchmarks/
+│   ├── requests/current.json       # Commit-triggered benchmark request
+│   ├── results/                    # Recorded experiment results
+│   └── GITHUB_ACTIONS.md           # CI benchmark documentation
 └── rubydex.toml
 ```
 
 ## Experimental rules
 
-Do not modify a fixture between control and treatment runs of the same experiment.
+Do not modify a fixture or frozen external revision between control and treatment runs of the same experiment.
 
-Agent benchmarks use isolated workspaces without this repository's explanatory documentation. Do not share transcripts or patches between conditions before both runs are complete.
+Do not expose frozen ground truth to the benchmark prompt or agent workspace as task guidance.
 
-Keep model and reasoning effort identical between compared runs.
+Keep model and reasoning effort identical between compared conditions.
 
-## Metrics
+Use multiple independent samples for claims about cost or latency. Prefer median values over one-off runs.
 
-Record at least:
+Treat external repository source as untrusted input. Never place API keys in source files, prompts, benchmark request files, issues, or logs.
 
-| Metric | Why it matters |
-| --- | --- |
-| Correct final result | A faster wrong answer is not useful |
-| Real references found | Measures semantic recall |
-| False-positive references | Measures search noise |
-| Files inspected | Proxy for exploration cost |
-| Search/tool calls | Proxy for interaction overhead |
-| Tokens used | Direct agent cost/context pressure |
-| Wall-clock duration | User-facing latency |
-| Time to complete dependency set | Measures navigation efficiency |
-
-Use [`benchmarks/run-template.md`](benchmarks/run-template.md) for manual runs.
-
-## Setup
+## Local setup and debugging
 
 The repository pins Ruby 3.4.8. Rubydex itself supports Ruby 3.2+.
 
@@ -122,17 +154,13 @@ Run the Rubydex linter:
 bundle exec rdx lint
 ```
 
-Run the runtime structural check:
-
-```bash
-bundle exec rails test test/structural/no_conflicting_fulfillment_mixins_test.rb
-```
-
 Start the Rubydex MCP server:
 
 ```bash
 bundle exec rdx mcp
 ```
+
+Local `bin/...` runners remain available for debugging harness changes, but fresh GitHub-hosted samples are the primary measurement path for Labs 04 and 05.
 
 ## References
 
@@ -142,4 +170,4 @@ bundle exec rdx mcp
 
 ## Status
 
-This is an experiment repository. Rubydex itself is evolving quickly, and these labs should be updated as its graph, linter, and MCP APIs evolve.
+This is an experiment repository. Rubydex itself is evolving quickly, and these labs should be updated as its graph, linter, MCP APIs, and agent integrations evolve.
