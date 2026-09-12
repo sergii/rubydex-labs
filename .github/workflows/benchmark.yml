@@ -1,0 +1,234 @@
+name: Rubydex benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      lab:
+        description: Benchmark lab
+        required: true
+        type: choice
+        default: "05"
+        options:
+          - "04"
+          - "05"
+      model:
+        description: OpenAI model
+        required: true
+        type: string
+        default: gpt-5.6-luna
+      reasoning:
+        description: Reasoning effort
+        required: true
+        type: choice
+        default: medium
+        options:
+          - low
+          - medium
+          - high
+      repetitions:
+        description: Samples per condition
+        required: true
+        type: choice
+        default: "3"
+        options:
+          - "1"
+          - "3"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: rubydex-benchmark-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    name: sample-${{ matrix.condition }}-r${{ matrix.repeat }}
+    if: ${{ matrix.repeat <= fromJSON(inputs.repetitions) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        condition: [A, B]
+        repeat: [1, 2, 3]
+
+    steps:
+      - name: Checkout rubydex-labs
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Checkout pinned Discourse
+        uses: actions/checkout@v5
+        with:
+          repository: discourse/discourse
+          ref: c89b1a0506a3ec0a249b7f23ac86763b358dc177
+          path: discourse
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4.8"
+          bundler-cache: true
+
+      - name: Validate OpenAI secret
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "OPENAI_API_KEY is not configured in repository Actions secrets." >&2
+            exit 1
+          fi
+
+      - name: Prepare benchmark sample
+        id: prepare
+        env:
+          LAB: ${{ inputs.lab }}
+          CONDITION: ${{ matrix.condition }}
+          REPEAT: ${{ matrix.repeat }}
+          MODEL: ${{ inputs.model }}
+          REASONING: ${{ inputs.reasoning }}
+        run: |
+          set -euo pipefail
+
+          output_dir="$RUNNER_TEMP/benchmark-output"
+          codex_home="$RUNNER_TEMP/codex-home"
+          mkdir -p "$output_dir" "$codex_home"
+
+          if [ "$LAB" = "04" ]; then
+            if [ "$CONDITION" = "A" ]; then
+              prompt_file="labs/04-real-discourse/task.md"
+            else
+              prompt_file="labs/04-real-discourse/task-semantic-first.md"
+            fi
+          elif [ "$LAB" = "05" ]; then
+            if [ "$CONDITION" = "A" ]; then
+              prompt_file="labs/05-real-impact-map/task.md"
+            else
+              prompt_file="labs/05-real-impact-map/task-semantic-first.md"
+            fi
+          else
+            echo "Unsupported lab: $LAB" >&2
+            exit 2
+          fi
+
+          cat > "$codex_home/config.toml" <<EOF
+          approval_policy = "never"
+          EOF
+
+          if [ "$CONDITION" = "B" ]; then
+            cat >> "$codex_home/config.toml" <<EOF
+
+          [mcp_servers.rubydex]
+          command = "env"
+          args = ["BUNDLE_GEMFILE=${GITHUB_WORKSPACE}/Gemfile", "bundle", "exec", "rdx", "mcp"]
+          cwd = "${GITHUB_WORKSPACE}/discourse"
+          enabled = true
+          required = true
+          default_tools_approval_mode = "approve"
+          EOF
+          fi
+
+          python3 - "$output_dir/meta.json" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          Path(sys.argv[1]).write_text(json.dumps({
+              "lab": os.environ["LAB"],
+              "condition": os.environ["CONDITION"],
+              "repeat": int(os.environ["REPEAT"]),
+              "model": os.environ["MODEL"],
+              "reasoning": os.environ["REASONING"],
+              "repository": "discourse/discourse",
+              "revision": "c89b1a0506a3ec0a249b7f23ac86763b358dc177",
+          }, indent=2) + "\n")
+          PY
+
+          echo "prompt_file=$prompt_file" >> "$GITHUB_OUTPUT"
+          echo "output_dir=$output_dir" >> "$GITHUB_OUTPUT"
+          echo "codex_home=$codex_home" >> "$GITHUB_OUTPUT"
+
+      - name: Run Codex benchmark sample
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ steps.prepare.outputs.prompt_file }}
+          output-file: ${{ steps.prepare.outputs.output_dir }}/final.txt
+          working-directory: discourse
+          codex-home: ${{ steps.prepare.outputs.codex_home }}
+          model: ${{ inputs.model }}
+          effort: ${{ inputs.reasoning }}
+          permission-profile: ":read-only"
+          safety-strategy: drop-sudo
+          codex-args: '["--json","--ephemeral"]'
+
+      # Codex runs read-only and drop-sudo. This post-step only packages files
+      # already written by the trusted action/runner harness.
+      - name: Upload sample artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-${{ matrix.condition }}-r${{ matrix.repeat }}
+          path: ${{ steps.prepare.outputs.output_dir }}
+          if-no-files-found: warn
+          retention-days: 14
+
+  aggregate:
+    name: aggregate
+    if: ${{ always() }}
+    needs: benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout rubydex-labs
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Download sample artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: sample-*
+          path: ci-artifacts
+
+      - name: Download completed sample job logs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 scripts/ci/fetch-benchmark-job-logs.py \
+            --repository "$REPOSITORY" \
+            --run-id "$RUN_ID" \
+            --output ci-logs
+
+      - name: Aggregate benchmark
+        env:
+          LAB: ${{ inputs.lab }}
+          MODEL: ${{ inputs.model }}
+          REASONING: ${{ inputs.reasoning }}
+        run: |
+          python3 scripts/ci/aggregate-benchmark.py \
+            --lab "$LAB" \
+            --model "$MODEL" \
+            --reasoning "$REASONING" \
+            --artifacts ci-artifacts \
+            --logs ci-logs \
+            --output ci-report
+          cat ci-report/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload aggregate report
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-report
+          path: ci-report
+          retention-days: 30
