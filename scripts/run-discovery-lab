@@ -45,6 +45,10 @@ benchmark_codex_home="/tmp/rubydex-codex-home-${label}-${scale}-${run_id}"
 latest_link="/tmp/rubydex-discovery-${label}-${scale}-latest"
 
 mkdir -p "$run_dir"
+if [[ -n "${RUBYDEX_LABS_RUN_DIR_FILE:-}" ]]; then
+  printf '%s\n' "$run_dir" > "$RUBYDEX_LABS_RUN_DIR_FILE"
+fi
+
 "${repo_root}/scripts/prepare-discovery-fixture" "$target" "$profile" "$scale"
 
 cd "$target"
