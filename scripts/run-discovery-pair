@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+scale="${1:-large}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+case "$scale" in
+  small|medium|large) ;;
+  *)
+    echo "Usage: $0 [small|medium|large]" >&2
+    exit 2
+    ;;
+esac
+
+pair_id="$(date +%Y%m%d-%H%M%S)-$$"
+pair_dir="/tmp/rubydex-discovery-pairs/${scale}-${pair_id}"
+latest_link="/tmp/rubydex-discovery-pair-${scale}-latest"
+
+mkdir -p "$pair_dir"
+ln -sfn "$pair_dir" "$latest_link"
+printf 'starting\n' > "${pair_dir}/state"
+
+cat > "${pair_dir}/metadata.txt" <<EOF
+pair_id: ${pair_id}
+scale: ${scale}
+model: ${RUBYDEX_LABS_MODEL:-gpt-5.6-luna}
+reasoning: ${RUBYDEX_LABS_REASONING:-medium}
+execution: sequential A -> B
+EOF
+
+nohup bash "${repo_root}/scripts/run-discovery-pair-worker" \
+  "$scale" \
+  "$pair_dir" \
+  > "${pair_dir}/worker.log" \
+  2>&1 \
+  < /dev/null &
+pair_pid=$!
+printf '%s\n' "$pair_pid" > "${pair_dir}/pid"
+
+cat <<EOF
+
+Started sequential discovery pair at scale ${scale}.
+PID: ${pair_pid}
+Model: ${RUBYDEX_LABS_MODEL:-gpt-5.6-luna}
+Reasoning: ${RUBYDEX_LABS_REASONING:-medium}
+Pair data: ${pair_dir}
+
+The pair runs A first and starts B only after A completes.
+No Codex TUI interaction is required.
+
+Check progress/result with:
+
+  bin/discovery-pair-status ${scale}
+
+Final comparison will be written to:
+  ${pair_dir}/comparison.md
+  ${pair_dir}/comparison.json
+EOF
