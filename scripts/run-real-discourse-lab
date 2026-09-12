@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mode="${1:-}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+case "$mode" in
+  A|a)
+    label="A"
+    profile="text"
+    task_file="${repo_root}/labs/04-real-discourse/task.md"
+    ;;
+  B|b)
+    label="B"
+    profile="semantic"
+    task_file="${repo_root}/labs/04-real-discourse/task-semantic-first.md"
+    ;;
+  *)
+    echo "Usage: $0 A|B" >&2
+    exit 2
+    ;;
+esac
+
+for command_name in bundle codex git python3; do
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    echo "Missing required command: $command_name" >&2
+    exit 1
+  fi
+done
+
+target="$(bash "${repo_root}/scripts/prepare-real-discourse")"
+run_id="$(date +%Y%m%d-%H%M%S)-$$"
+run_dir="/tmp/rubydex-real-discourse-runs/${label}-${run_id}"
+codex_home="/tmp/rubydex-real-discourse-codex-home-${label}-${run_id}"
+latest_link="/tmp/rubydex-real-discourse-${label}-latest"
+
+mkdir -p "$run_dir" "$codex_home"
+cp "$task_file" "${run_dir}/prompt.md"
+
+global_codex_home="${CODEX_HOME:-${HOME}/.codex}"
+if [[ -f "${global_codex_home}/auth.json" ]]; then
+  ln -s "${global_codex_home}/auth.json" "${codex_home}/auth.json"
+fi
+
+model="${RUBYDEX_LABS_MODEL:-gpt-5.6-luna}"
+reasoning="${RUBYDEX_LABS_REASONING:-medium}"
+lab_gemfile="${repo_root}/Gemfile"
+
+cat > "${codex_home}/config.toml" <<EOF
+model = "${model}"
+model_reasoning_effort = "${reasoning}"
+approval_policy = "never"
+sandbox_mode = "read-only"
+EOF
+
+if [[ "$label" == "B" ]]; then
+  cat >> "${codex_home}/config.toml" <<EOF
+
+[mcp_servers.rubydex]
+command = "env"
+args = ["BUNDLE_GEMFILE=${lab_gemfile}", "bundle", "exec", "rdx", "mcp"]
+cwd = "${target}"
+enabled = true
+required = true
+default_tools_approval_mode = "approve"
+EOF
+fi
+
+cat > "${run_dir}/metadata.txt" <<EOF
+kind: benchmark
+condition: ${label}
+profile: ${profile}
+repository: discourse/discourse
+revision: c89b1a0506a3ec0a249b7f23ac86763b358dc177
+target_declaration: Categories::Types::Base
+workspace: ${target}
+model: ${model}
+reasoning: ${reasoning}
+codex_home: ${codex_home}
+EOF
+
+ln -sfn "$run_dir" "$latest_link"
+printf 'starting\n' > "${run_dir}/state"
+
+nohup bash "${repo_root}/scripts/run-discovery-worker" \
+  "$target" \
+  "$codex_home" \
+  "${run_dir}/prompt.md" \
+  "$run_dir" \
+  > "${run_dir}/worker.log" \
+  2>&1 \
+  < /dev/null &
+pid=$!
+printf '%s\n' "$pid" > "${run_dir}/pid"
+
+if [[ -n "${RUBYDEX_LABS_RUN_DIR_FILE:-}" ]]; then
+  printf '%s\n' "$run_dir" > "$RUBYDEX_LABS_RUN_DIR_FILE"
+fi
+
+cat <<EOF
+
+Started real Discourse Lab ${label} in background.
+PID: ${pid}
+Condition: ${profile}
+Model: ${model}
+Reasoning: ${reasoning}
+Workspace: ${target}
+Run data: ${run_dir}
+
+No Codex TUI interaction is required.
+Check progress/result with:
+
+  bin/real-discourse-status ${label}
+EOF
