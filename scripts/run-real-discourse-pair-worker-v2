@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+order="${1:-AB}"
+pair_dir="${2:?pair directory is required}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+bash "${repo_root}/scripts/run-real-discourse-pair-worker" "$order" "$pair_dir"
+
+# The original worker performs orchestration and writes the raw comparison.
+# Re-score final answers with the stricter standalone path:line parser so
+# explanatory prose cannot be misclassified as an answer reference.
+printf 'rescoring\n' > "${pair_dir}/state"
+python3 "${repo_root}/scripts/rescore-real-discourse-pair" \
+  "$pair_dir" \
+  "$order" \
+  "${repo_root}/labs/04-real-discourse/ground-truth.txt"
+printf 'completed\n' > "${pair_dir}/state"
