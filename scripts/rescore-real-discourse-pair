@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+import json
+import re
+from pathlib import Path
+import sys
+
+if len(sys.argv) != 4:
+    raise SystemExit("Usage: rescore-real-discourse-pair PAIR_DIR ORDER GROUND_TRUTH")
+
+pair_dir = Path(sys.argv[1])
+order = sys.argv[2]
+ground_truth_path = Path(sys.argv[3])
+expected = {
+    line.strip()
+    for line in ground_truth_path.read_text().splitlines()
+    if line.strip()
+}
+declaration = "app/services/categories/types/base.rb:5"
+reference_line = re.compile(r"([A-Za-z0-9_./-]+\.rb:\d+)")
+
+
+def read_run(label):
+    run_dir = Path((pair_dir / f"{label.lower()}-run-dir").read_text().strip())
+    summary = json.loads((run_dir / "summary.json").read_text())
+    final = (run_dir / "final.txt").read_text(errors="replace") if (run_dir / "final.txt").exists() else ""
+    metadata = {}
+    metadata_path = run_dir / "metadata.txt"
+    if metadata_path.exists():
+        for line in metadata_path.read_text().splitlines():
+            if ": " in line:
+                key, value = line.split(": ", 1)
+                metadata[key] = value
+    return run_dir, summary, final, metadata
+
+
+def extract_reference_lines(final):
+    """Extract only standalone path:line answer entries, not prose mentions.
+
+    The benchmark asks for one reference per path:line entry. Agents may later
+    discuss excluded candidates with shortened names such as `base.rb:158`.
+    Counting every path-looking substring in prose creates false positives, so
+    scoring only accepts lines whose complete semantic payload is a path:line.
+    """
+    mentioned = set()
+    for raw in final.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("```"):
+            continue
+        if line.startswith(("- ", "* ")):
+            line = line[2:].strip()
+        if len(line) >= 2 and line[0] == "`" and line[-1] == "`":
+            line = line[1:-1].strip()
+        match = reference_line.fullmatch(line)
+        if match:
+            mentioned.add(match.group(1))
+    mentioned.discard(declaration)
+    return mentioned
+
+
+def score(final):
+    mentioned = extract_reference_lines(final)
+    true_positive = mentioned & expected
+    false_positive = mentioned - expected
+    missed = expected - mentioned
+    precision = len(true_positive) / len(mentioned) if mentioned else 0.0
+    recall = len(true_positive) / len(expected) if expected else 1.0
+    return {
+        "mentioned": sorted(mentioned),
+        "true_positive": sorted(true_positive),
+        "false_positive": sorted(false_positive),
+        "missed": sorted(missed),
+        "precision": precision,
+        "recall": recall,
+        "exact": not false_positive and not missed,
+    }
+
+
+a_dir, a, a_final, a_meta = read_run("A")
+b_dir, b, b_final, b_meta = read_run("B")
+a_score = score(a_final)
+b_score = score(b_final)
+
+metrics = [
+    ("elapsed_seconds", lambda s: s["elapsed_seconds"]),
+    ("total_tokens", lambda s: s["usage"]["total_tokens"]),
+    ("input_tokens", lambda s: s["usage"]["input_tokens"]),
+    ("cached_input_tokens", lambda s: s["usage"]["cached_input_tokens"]),
+    ("uncached_input_tokens", lambda s: s["usage"]["uncached_input_tokens"]),
+    ("output_tokens", lambda s: s["usage"]["output_tokens"]),
+    ("reasoning_output_tokens", lambda s: s["usage"]["reasoning_output_tokens"]),
+]
+
+comparison = {
+    "repository": "discourse/discourse",
+    "revision": "c89b1a0506a3ec0a249b7f23ac86763b358dc177",
+    "target": "Categories::Types::Base",
+    "order": order,
+    "model": a_meta.get("model"),
+    "reasoning": a_meta.get("reasoning"),
+    "expected_reference_count": len(expected),
+    "a_run_dir": str(a_dir),
+    "b_run_dir": str(b_dir),
+    "a_score": a_score,
+    "b_score": b_score,
+    "metrics": {},
+    "scoring": "standalone_path_line_v2",
+}
+
+rows = []
+for name, getter in metrics:
+    av = int(getter(a))
+    bv = int(getter(b))
+    delta = bv - av
+    pct = (delta / av * 100.0) if av else None
+    comparison["metrics"][name] = {
+        "a": av,
+        "b": bv,
+        "delta": delta,
+        "percent": pct,
+    }
+    pct_text = "n/a" if pct is None else f"{pct:+.1f}%"
+    rows.append((name, av, bv, pct_text))
+
+(pair_dir / "comparison.json").write_text(json.dumps(comparison, indent=2) + "\n")
+
+model = comparison["model"] or "unknown"
+reasoning = comparison["reasoning"] or "unknown"
+lines = [
+    "# Real Discourse discovery comparison",
+    "",
+    "Repository: `discourse/discourse`",
+    "Revision: `c89b1a0506a3ec0a249b7f23ac86763b358dc177`",
+    "Target: `Categories::Types::Base`",
+    f"Model: `{model}`",
+    f"Reasoning: `{reasoning}`",
+    f"Execution order: `{order}`",
+    "Scoring: standalone `path:line` answer entries only (v2)",
+    "",
+    "## Correctness",
+    "",
+    "| Metric | A - text | B - Rubydex |",
+    "| --- | ---: | ---: |",
+    f"| Recall | {len(a_score['true_positive'])}/{len(expected)} ({a_score['recall']:.1%}) | {len(b_score['true_positive'])}/{len(expected)} ({b_score['recall']:.1%}) |",
+    f"| False positives | {len(a_score['false_positive'])} | {len(b_score['false_positive'])} |",
+    f"| Precision | {a_score['precision']:.1%} | {b_score['precision']:.1%} |",
+    f"| Exact answer | {'yes' if a_score['exact'] else 'no'} | {'yes' if b_score['exact'] else 'no'} |",
+    "",
+    "## Cost and latency",
+    "",
+    "| Metric | A - text | B - Rubydex | B vs A |",
+    "| --- | ---: | ---: | ---: |",
+]
+for name, av, bv, pct_text in rows:
+    lines.append(f"| {name} | {av:,} | {bv:,} | {pct_text} |")
+
+for label, score_data in (("A", a_score), ("B", b_score)):
+    if score_data["missed"]:
+        lines.extend(["", f"### {label} missed references", "", "```text", *score_data["missed"], "```"])
+    if score_data["false_positive"]:
+        lines.extend(["", f"### {label} false positives", "", "```text", *score_data["false_positive"], "```"])
+
+lines.extend([
+    "",
+    "## A final answer",
+    "",
+    a_final.rstrip(),
+    "",
+    "## B final answer",
+    "",
+    b_final.rstrip(),
+    "",
+])
+(pair_dir / "comparison.md").write_text("\n".join(lines))
+
+summary_lines = [
+    "status: completed",
+    "repository: discourse/discourse",
+    "revision: c89b1a0506a3ec0a249b7f23ac86763b358dc177",
+    "target: Categories::Types::Base",
+    f"order: {order}",
+    f"model: {model}",
+    f"reasoning: {reasoning}",
+    "scoring: standalone_path_line_v2",
+    f"references_expected: {len(expected)}",
+    f"recall_a: {len(a_score['true_positive'])}/{len(expected)}",
+    f"recall_b: {len(b_score['true_positive'])}/{len(expected)}",
+    f"false_positives_a: {len(a_score['false_positive'])}",
+    f"false_positives_b: {len(b_score['false_positive'])}",
+    f"precision_a: {a_score['precision']:.1%}",
+    f"precision_b: {b_score['precision']:.1%}",
+    f"exact_a: {'yes' if a_score['exact'] else 'no'}",
+    f"exact_b: {'yes' if b_score['exact'] else 'no'}",
+]
+for name, av, bv, pct_text in rows:
+    summary_lines.append(f"{name}: A={av} B={bv} B_vs_A={pct_text}")
+(pair_dir / "summary.txt").write_text("\n".join(summary_lines) + "\n")
