@@ -109,6 +109,7 @@ elif usage_blocked:
 else:
     status_name = "failed"
 
+uncached_input_tokens = max(usage["input_tokens"] - usage["cached_input_tokens"], 0)
 summary = {
     "status": status_name,
     "exit_code": exit_code,
@@ -118,6 +119,7 @@ summary = {
     "turn_failed": turn_failed,
     "usage": {
         **usage,
+        "uncached_input_tokens": uncached_input_tokens,
         "total_tokens": usage["input_tokens"] + usage["output_tokens"],
     },
     "item_event_counts": dict(sorted(item_types.items())),
@@ -137,6 +139,7 @@ lines = [
     f"total_tokens: {summary['usage']['total_tokens']}",
     f"input_tokens: {usage['input_tokens']}",
     f"cached_input_tokens: {usage['cached_input_tokens']}",
+    f"uncached_input_tokens: {uncached_input_tokens}",
     f"output_tokens: {usage['output_tokens']}",
     f"reasoning_output_tokens: {usage['reasoning_output_tokens']}",
 ]
