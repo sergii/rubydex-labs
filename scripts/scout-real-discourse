@@ -1,7 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+mode="${1:-references}"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+case "$mode" in
+  references|reference|lab04)
+    scout_kind="scout"
+    prompt_file="${repo_root}/labs/04-real-discourse/scout.md"
+    ;;
+  impact|lab05)
+    scout_kind="impact-scout"
+    prompt_file="${repo_root}/labs/05-real-impact-map/scout.md"
+    ;;
+  *)
+    echo "Usage: $0 [references|impact]" >&2
+    exit 2
+    ;;
+esac
 
 for command_name in bundle codex git python3; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
@@ -12,12 +28,12 @@ done
 
 target="$(bash "${repo_root}/scripts/prepare-real-discourse")"
 run_id="$(date +%Y%m%d-%H%M%S)-$$"
-run_dir="/tmp/rubydex-real-discourse-runs/scout-${run_id}"
-codex_home="/tmp/rubydex-real-discourse-codex-home-scout-${run_id}"
-latest_link="/tmp/rubydex-real-discourse-scout-latest"
+run_dir="/tmp/rubydex-real-discourse-runs/${scout_kind}-${run_id}"
+codex_home="/tmp/rubydex-real-discourse-codex-home-${scout_kind}-${run_id}"
+latest_link="/tmp/rubydex-real-discourse-${scout_kind}-latest"
 
 mkdir -p "$run_dir" "$codex_home"
-cp "${repo_root}/labs/04-real-discourse/scout.md" "${run_dir}/prompt.md"
+cp "$prompt_file" "${run_dir}/prompt.md"
 
 global_codex_home="${CODEX_HOME:-${HOME}/.codex}"
 if [[ -f "${global_codex_home}/auth.json" ]]; then
@@ -44,7 +60,7 @@ default_tools_approval_mode = "approve"
 EOF
 
 cat > "${run_dir}/metadata.txt" <<EOF
-kind: scout
+kind: ${scout_kind}
 repository: discourse/discourse
 revision: c89b1a0506a3ec0a249b7f23ac86763b358dc177
 target_declaration: Categories::Types::Base
@@ -70,7 +86,7 @@ printf '%s\n' "$pid" > "${run_dir}/pid"
 
 cat <<EOF
 
-Started real-codebase Discourse scout in background.
+Started real-codebase Discourse ${scout_kind} in background.
 PID: ${pid}
 Repository: discourse/discourse
 Revision: c89b1a0506a3ec0a249b7f23ac86763b358dc177
@@ -83,5 +99,5 @@ Run data: ${run_dir}
 This scout is NOT a benchmark measurement.
 Check progress/result with:
 
-  bin/real-discourse-status scout
+  bin/real-discourse-status ${scout_kind}
 EOF
