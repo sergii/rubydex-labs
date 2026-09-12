@@ -3,14 +3,23 @@ set -euo pipefail
 
 kind="${1:-scout}"
 case "$kind" in
-  scout) ;;
+  scout)
+    latest="/tmp/rubydex-real-discourse-scout-latest"
+    ;;
+  A|a)
+    kind="A"
+    latest="/tmp/rubydex-real-discourse-A-latest"
+    ;;
+  B|b)
+    kind="B"
+    latest="/tmp/rubydex-real-discourse-B-latest"
+    ;;
   *)
-    echo "Usage: $0 scout" >&2
+    echo "Usage: $0 scout|A|B" >&2
     exit 2
     ;;
 esac
 
-latest="/tmp/rubydex-real-discourse-${kind}-latest"
 if [[ ! -e "$latest" ]]; then
   echo "No real Discourse ${kind} run found." >&2
   exit 1
