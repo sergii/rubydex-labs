@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+order="${1:-AB}"
+case "$order" in
+  AB|BA) ;;
+  *)
+    echo "Usage: $0 [AB|BA]" >&2
+    exit 2
+    ;;
+esac
+
+latest="/tmp/rubydex-real-discourse-pair-${order}-latest"
+if [[ ! -e "$latest" ]]; then
+  echo "No real Discourse ${order} pair found." >&2
+  exit 1
+fi
+
+pair_dir="$(cd "$latest" && pwd)"
+state="unknown"
+[[ -f "${pair_dir}/state" ]] && state="$(cat "${pair_dir}/state")"
+
+echo "Pair: ${pair_dir}"
+echo "State: ${state}"
+
+if [[ -f "${pair_dir}/pid" ]]; then
+  pid="$(cat "${pair_dir}/pid")"
+  if kill -0 "$pid" >/dev/null 2>&1; then
+    echo "PID: ${pid} (running)"
+  elif [[ "$state" != "completed" ]]; then
+    echo "PID: ${pid} (not running)"
+  fi
+fi
+
+for label in a b; do
+  run_dir_file="${pair_dir}/${label}-run-dir"
+  if [[ -s "$run_dir_file" ]]; then
+    run_dir="$(cat "$run_dir_file")"
+    condition_state="unknown"
+    [[ -f "${run_dir}/state" ]] && condition_state="$(cat "${run_dir}/state")"
+    display_label="$(printf '%s' "$label" | tr '[:lower:]' '[:upper:]')"
+    echo "${display_label}: ${condition_state} - ${run_dir}"
+  fi
+done
+
+if [[ -s "${pair_dir}/summary.txt" ]]; then
+  echo
+  cat "${pair_dir}/summary.txt"
+fi
+
+if [[ -s "${pair_dir}/comparison.md" ]]; then
+  echo
+  cat "${pair_dir}/comparison.md"
+fi
+
+case "$state" in
+  failed_*|blocked_usage_*)
+    echo
+    echo "Pair did not complete. Recent worker output:"
+    tail -n 40 "${pair_dir}/worker.log" 2>/dev/null || true
+    ;;
+esac
