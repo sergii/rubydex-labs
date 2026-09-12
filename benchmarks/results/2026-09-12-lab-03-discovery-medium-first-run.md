@@ -27,128 +27,98 @@ app/services/orders/processor.rb:4
 app/services/orders/processor.rb:8
 ```
 
-## First pair
+## Earlier Astra/xhigh exploration
 
-### Run A - text navigation
+The first interactive experiments used `gpt-6-astra` with `xhigh` reasoning. They established that both text navigation and Rubydex could reach 7/7 correctness, but several runs were contaminated by interactive approval pauses, unrelated MCP startup state, or runner configuration failures.
 
-```text
-Elapsed runner time: 57 s
-Total tokens: 29,365
-Input tokens: 28,031
-Output tokens: 1,334
-Cached input: 97,280
-Correct references: 7/7
-Edits: none
-```
+A valid early pair showed a substantial token reduction for Rubydex but unusable latency comparison:
 
-### Run B - Rubydex semantic-first
+| Metric | A - text | B - Rubydex |
+| --- | ---: | ---: |
+| Correct references | 7/7 | 7/7 |
+| Interactive reported total tokens | 29,365 | 18,655 |
+| Runner wall-clock | 57 s | 96 s, approval-contaminated |
 
-Rubydex immediately resolved the target and returned exactly seven references. The agent then performed narrow verification and some unnecessary same-name declaration enumeration.
+A second valid text-only run returned 7/7 in 86 s with 25,686 interactive reported tokens. Invalid semantic attempts caused by approval policy, malformed global MCP configuration, prompt transport, and usage limits are not benchmark results.
 
-```text
-Elapsed runner time: 96 s
-Codex reported work time: 79 s
-Total tokens: 18,655
-Input tokens: 17,674
-Output tokens: 981
-Cached input: 129,280
-Correct references: 7/7
-Edits: none
-```
+These Astra results are retained as exploratory history only and are not directly mixed with the Luna benchmark below.
 
-### First-pair comparison
+## Clean headless benchmark - GPT-5.6 Luna / medium
 
-| Metric | A - text | B - Rubydex | Difference |
-| --- | ---: | ---: | ---: |
-| Correct references | 7/7 | 7/7 | equal |
-| Total tokens | 29,365 | 18,655 | Rubydex -36.5% |
-| Input tokens | 28,031 | 17,674 | Rubydex -36.9% |
-| Output tokens | 1,334 | 981 | Rubydex -26.5% |
-| Runner wall-clock | 57 s | 96 s | contaminated |
-
-The token comparison is useful. The latency comparison is not: Run B included human approval delays and unrelated MCP startup/authentication noise.
-
-## Second attempt
-
-The runner was changed to `approval_policy = "never"` plus `sandbox_mode = "read-only"` to eliminate human approval pauses.
-
-### Run A - valid
-
-The second text-only run again returned all seven references and correctly separated `Admin::Reservation` and all 40 noise-domain constants.
+The runner was then converted to isolated, non-interactive `codex exec --json` runs with:
 
 ```text
-Elapsed runner time: 86 s
-Codex reported work time: 63 s
-Total tokens: 25,686
-Input tokens: 23,876
-Output tokens: 1,810
-Cached input: 83,456
-Correct references: 7/7
-Edits: none
-```
-
-This reinforces that the text condition itself has substantial stochastic variance: 57 s / 29,365 tokens on the first run versus 86 s / 25,686 tokens on the second.
-
-### Run B - invalid
-
-The semantic run stopped before discovery. Both Rubydex calls failed with:
-
-```text
-MCP tool call requires approval, but approval policy is never
-```
-
-The resulting `30 s / 9,609 tokens` are **not benchmark measurements** and must not be compared with A. They measure a configuration failure, not semantic navigation.
-
-## Third launch attempt - invalid before Codex startup
-
-An attempted fix tried to disable unrelated global MCP servers through runtime overrides. Codex still parsed the user's global configuration before applying those overrides and exited immediately because the existing `cloudflare-api` entry used an invalid transport for this Codex version:
-
-```text
-Error loading config.toml: invalid transport
-in `mcp_servers.cloudflare-api`
-```
-
-This attempt consumed effectively no benchmark time and produced no benchmark result.
-
-## Final runner isolation
-
-Discovery runners now use a dedicated temporary `CODEX_HOME` for each run instead of merging with the user's global Codex configuration.
-
-The benchmark home contains only:
-
-```text
-model = gpt-6-astra
-model_reasoning_effort = xhigh
+model = gpt-5.6-luna
+model_reasoning_effort = medium
 approval_policy = never
 sandbox_mode = read-only
 ```
 
-For semantic runs it additionally contains only the project-local Rubydex MCP server with:
+Semantic runs expose only the project-local Rubydex MCP server. User MCP servers, hooks, and global Codex configuration are excluded through a per-run `CODEX_HOME`.
+
+Both runs completed successfully and returned exactly the seven ground-truth references.
+
+### A - text navigation
 
 ```text
-enabled = true
-required = true
-default_tools_approval_mode = approve
+Elapsed: 39 s
+Input tokens: 181,353
+Cached input tokens: 131,328
+Uncached input tokens: 50,025
+Output tokens: 1,475
+Reasoning output tokens: 542
+Total tokens: 182,828
+Correct references: 7/7
 ```
 
-If the user's normal Codex login is stored in `~/.codex/auth.json`, the benchmark home symlinks that auth file but does not import `~/.codex/config.toml`, unrelated MCP servers, hooks, or other user configuration.
+The agent separated `Inventory::Reservation` from `Admin::Reservation`, the 40 generated `NoiseDomainNNNN::Reservation` constants, string literals, and the target declaration itself.
 
-The model and reasoning level can be overridden explicitly with:
+### B - Rubydex semantic-first
 
 ```text
-RUBYDEX_LABS_MODEL
-RUBYDEX_LABS_REASONING
+Elapsed: 34 s
+Input tokens: 135,285
+Cached input tokens: 114,176
+Uncached input tokens: 21,109
+Output tokens: 1,061
+Reasoning output tokens: 472
+Total tokens: 136,346
+Correct references: 7/7
 ```
 
-This makes A and B reproducible and prevents unrelated MCP configuration from affecting startup or timing.
+Rubydex resolved the target declaration and the exact seven semantic references. The final answer explicitly excluded `Admin::Reservation` and generated noise-domain constants because they resolve to different fully qualified declarations.
 
-## Current signal
+### Clean-pair comparison
 
-At medium scale:
+| Metric | A - text | B - Rubydex | Rubydex delta |
+| --- | ---: | ---: | ---: |
+| Correct references | 7/7 | 7/7 | equal |
+| Wall-clock | 39 s | 34 s | **-12.8%** |
+| Total tokens | 182,828 | 136,346 | **-25.4%** |
+| Input tokens | 181,353 | 135,285 | **-25.4%** |
+| Cached input tokens | 131,328 | 114,176 | **-13.1%** |
+| Uncached input tokens | 50,025 | 21,109 | **-57.8%** |
+| Output tokens | 1,475 | 1,061 | **-28.1%** |
+| Reasoning output tokens | 542 | 472 | **-12.9%** |
 
-- correctness: text and Rubydex both achieved 7/7 in valid runs
-- token/context efficiency: the first valid Rubydex run used about 36.5% fewer total tokens than the first text run
-- repeatability: text navigation already shows meaningful run-to-run variance
-- latency: still inconclusive until a clean Rubydex repeat completes under the isolated Codex configuration
+`codex exec --json` reports `cached_input_tokens` as a subset of `input_tokens`, so `uncached_input_tokens = input_tokens - cached_input_tokens`. The headless `total_tokens` above is `input_tokens + output_tokens` and should not be compared numerically with the earlier interactive CLI's displayed token totals, which presented cached tokens separately.
 
-Next step: run **only B/medium once** with the isolated benchmark Codex home. If it succeeds cleanly, compare it against both valid A runs before deciding whether to move to `large`.
+## Interpretation
+
+This is the first clean medium-scale pair where Rubydex wins on all primary dimensions we care about while preserving correctness:
+
+- same semantic recall: 7/7 references
+- lower wall-clock latency in this pair
+- roughly one quarter fewer total/input tokens
+- less than half as much uncached input
+- less output and reasoning work
+
+The strongest signal is the **57.8% reduction in uncached input**. Text navigation had to ingest and reason over substantially more novel repository content, while Rubydex reduced the problem to a small semantic neighborhood.
+
+The wall-clock result should still be treated as one sample. A and B were launched about ten seconds apart and overlapped for part of their execution, so local CPU/process contention is possible. Token counts are not affected by that caveat.
+
+## Current conclusion
+
+At the 40-noise-domain / 120-extra-file medium fixture, semantic navigation has crossed from merely providing deterministic evidence to showing a measurable efficiency advantage for GPT-5.6 Luna.
+
+The next useful experiment is `large` with 150 noise domains / 450 extra Ruby files, preferably running A and B sequentially in one background pair so latency is not affected by concurrent local work.
