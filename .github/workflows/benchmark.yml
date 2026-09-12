@@ -45,7 +45,6 @@ concurrency:
 jobs:
   benchmark:
     name: sample-${{ matrix.condition }}-r${{ matrix.repeat }}
-    if: ${{ matrix.repeat <= fromJSON(inputs.repetitions) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -53,7 +52,7 @@ jobs:
       max-parallel: 2
       matrix:
         condition: [A, B]
-        repeat: [1, 2, 3]
+        repeat: ${{ fromJSON(inputs.repetitions == '1' && '[1]' || '[1,2,3]') }}
 
     steps:
       - name: Checkout rubydex-labs
