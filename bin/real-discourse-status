@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+kind="${1:-scout}"
+case "$kind" in
+  scout) ;;
+  *)
+    echo "Usage: $0 scout" >&2
+    exit 2
+    ;;
+esac
+
+latest="/tmp/rubydex-real-discourse-${kind}-latest"
+if [[ ! -e "$latest" ]]; then
+  echo "No real Discourse ${kind} run found." >&2
+  exit 1
+fi
+
+run_dir="$(cd "$latest" && pwd)"
+state="unknown"
+[[ -f "${run_dir}/state" ]] && state="$(cat "${run_dir}/state")"
+
+echo "Run: ${run_dir}"
+echo "State: ${state}"
+
+if [[ -f "${run_dir}/pid" ]]; then
+  pid="$(cat "${run_dir}/pid")"
+  if kill -0 "$pid" >/dev/null 2>&1; then
+    echo "PID: ${pid} (running)"
+  elif [[ "$state" == "starting" || "$state" == "running" ]]; then
+    echo "PID: ${pid} (not running; worker may have exited unexpectedly)"
+  fi
+fi
+
+if [[ -s "${run_dir}/summary.txt" ]]; then
+  echo
+  cat "${run_dir}/summary.txt"
+fi
+
+if [[ -s "${run_dir}/final.txt" ]]; then
+  echo
+  echo "Final answer:"
+  cat "${run_dir}/final.txt"
+fi
+
+case "$state" in
+  failed|blocked_usage)
+    if [[ -s "${run_dir}/stderr.log" ]]; then
+      echo
+      echo "stderr (last 40 lines):"
+      tail -n 40 "${run_dir}/stderr.log"
+    fi
+    ;;
+esac
