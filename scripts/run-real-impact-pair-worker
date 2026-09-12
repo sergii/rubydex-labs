@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+order="${1:-AB}"
+pair_dir="${2:?pair directory is required}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+case "$order" in
+  AB) first="A"; second="B" ;;
+  BA) first="B"; second="A" ;;
+  *) echo "Usage: $0 AB|BA PAIR_DIR" >&2; exit 2 ;;
+esac
+
+mkdir -p "$pair_dir"
+set_pair_state() { printf '%s\n' "$1" > "${pair_dir}/state"; }
+
+launch_condition() {
+  label="$1"
+  lower="$(printf '%s' "$label" | tr '[:upper:]' '[:lower:]')"
+  run_dir_file="${pair_dir}/${lower}-run-dir"
+  launch_log="${pair_dir}/${lower}-launch.log"
+  rm -f "$run_dir_file"
+  RUBYDEX_LABS_RUN_DIR_FILE="$run_dir_file" \
+    bash "${repo_root}/scripts/run-real-impact-lab" "$label" \
+    > "$launch_log" 2>&1
+  [[ -s "$run_dir_file" ]]
+}
+
+wait_for_condition() {
+  label="$1"
+  lower="$(printf '%s' "$label" | tr '[:upper:]' '[:lower:]')"
+  run_dir="$(cat "${pair_dir}/${lower}-run-dir")"
+  while true; do
+    condition_state="starting"
+    [[ -f "${run_dir}/state" ]] && condition_state="$(cat "${run_dir}/state")"
+    case "$condition_state" in
+      completed) return 0 ;;
+      blocked_usage) return 2 ;;
+      failed) return 1 ;;
+      *) sleep 2 ;;
+    esac
+  done
+}
+
+for label in "$first" "$second"; do
+  set_pair_state "starting_${label}"
+  if ! launch_condition "$label"; then
+    set_pair_state "failed_${label}_launch"
+    exit 1
+  fi
+  set_pair_state "running_${label}"
+  set +e
+  wait_for_condition "$label"
+  wait_status=$?
+  set -e
+  if [[ "$wait_status" -eq 2 ]]; then
+    set_pair_state "blocked_usage_${label}"
+    exit 2
+  elif [[ "$wait_status" -ne 0 ]]; then
+    set_pair_state "failed_${label}"
+    exit 1
+  fi
+done
+
+set_pair_state "scoring"
+python3 "${repo_root}/scripts/score-real-impact-pair.py" \
+  "$pair_dir" \
+  "$order" \
+  "${repo_root}/labs/05-real-impact-map/ground-truth.json"
+set_pair_state "completed"
