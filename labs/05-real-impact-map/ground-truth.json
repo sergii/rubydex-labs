@@ -8,7 +8,8 @@
     "DiscourseEvents::Categories::Types::Events | plugins/discourse-events/app/services/discourse_events/categories/types/events.rb:6",
     "DiscourseSolved::Categories::Types::Support | plugins/discourse-solved/app/services/discourse_solved/categories/types/support.rb:6",
     "DiscourseTopicVoting::Categories::Types::Ideas | plugins/discourse-topic-voting/app/services/discourse_topic_voting/categories/types/ideas.rb:6",
-    "MockCategoryType | spec/serializers/category_serializer_spec.rb:331"
+    "MockCategoryType | spec/serializers/category_serializer_spec.rb:331",
+    "MockCategoryType | spec/system/simplified_category_creation_spec.rb:24"
   ],
   "direct_production_references": [
     "app/services/categories/types/base.rb:158",
@@ -56,6 +57,9 @@
   },
   "scout_notes": {
     "rubydex_descendants_returned": 19,
+    "named_descendant_definition_count": 6,
+    "named_descendant_unique_constant_count": 5,
+    "ground_truth_correction": "Fresh independent benchmark runs exposed a second named MockCategoryType subclass definition at spec/system/simplified_category_creation_spec.rb:24. The pinned source confirms it. The original scout rendered that entry as anonymous, so the frozen ground truth was corrected before repeated benchmark runs.",
     "excluded_from_named_descendants": "target declaration itself plus anonymous Class.new descendants; benchmark prompt asks for named descendants",
     "resolved_constant_references": 21,
     "production_reference_count": 5,
