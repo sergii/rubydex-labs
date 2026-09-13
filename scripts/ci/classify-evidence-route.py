@@ -3,6 +3,9 @@
 
 Uses the OpenAI Responses API with Structured Outputs. The expected benchmark
 label is intentionally never passed to this process.
+
+Defense in depth: this script refuses to make a real OpenAI API call unless
+RUN_WITH_REAL_OPENAI_API=true is present in the process environment.
 """
 from __future__ import annotations
 
@@ -63,6 +66,11 @@ def main() -> int:
     parser.add_argument("--reasoning", default="low", choices=["none", "low", "medium", "high"])
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
+
+    if os.environ.get("RUN_WITH_REAL_OPENAI_API", "").strip().lower() != "true":
+        raise SystemExit(
+            "Refusing real OpenAI API call: set RUN_WITH_REAL_OPENAI_API=true explicitly."
+        )
 
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not api_key:
