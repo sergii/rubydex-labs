@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/risk.schema.json",
+  "title": "Engineering risk",
+  "description": "Storage-independent contract for an evidence-backed engineering risk and its predicted or realized consequences.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "state",
+    "subject_entity_refs",
+    "source_assertion_refs",
+    "recorded_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "description": { "type": ["string", "null"] },
+    "state": {
+      "type": "string",
+      "enum": [
+        "IDENTIFIED",
+        "ASSESSING",
+        "ACTIVE",
+        "MITIGATED",
+        "ACCEPTED",
+        "MATERIALIZED",
+        "EXPIRED",
+        "DISPROVEN"
+      ]
+    },
+    "severity": {
+      "type": ["string", "null"],
+      "enum": ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL", null]
+    },
+    "likelihood": {
+      "type": ["string", "null"],
+      "enum": ["UNKNOWN", "RARE", "UNLIKELY", "POSSIBLE", "LIKELY", "ALMOST_CERTAIN", null]
+    },
+    "probability": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "confidence_record": {
+      "oneOf": [
+        { "$ref": "confidence.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "subject_entity_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "change_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "source_assertion_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "finding_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "potential_impact": {
+      "$ref": "#/$defs/impact"
+    },
+    "realized_impact": {
+      "oneOf": [
+        { "$ref": "#/$defs/impact" },
+        { "type": "null" }
+      ]
+    },
+    "consequences": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/consequence" }
+    },
+    "valid_time": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "type": ["string", "null"], "format": "date-time" },
+        "to": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "materialized_at": { "type": ["string", "null"], "format": "date-time" },
+    "prediction_evaluation": {
+      "type": ["string", "null"],
+      "enum": [
+        "CONFIRMED",
+        "PARTIALLY_CONFIRMED",
+        "NOT_OBSERVED",
+        "CONTRADICTED",
+        "INCONCLUSIVE",
+        "NOT_YET_EVALUABLE",
+        null
+      ]
+    },
+    "observation_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "metadata": { "type": "object" }
+  },
+  "$defs": {
+    "consequence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "class", "statement", "mode"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "class": {
+          "type": "string",
+          "enum": [
+            "USER_EXPERIENCE",
+            "RELIABILITY",
+            "PERFORMANCE",
+            "DATA_INTEGRITY",
+            "FINANCIAL",
+            "SECURITY",
+            "COMPLIANCE",
+            "OPERABILITY",
+            "DELIVERY",
+            "ARCHITECTURE"
+          ]
+        },
+        "statement": { "type": "string", "minLength": 1 },
+        "mode": {
+          "type": "string",
+          "enum": ["PREDICTED", "DERIVED", "OBSERVED"]
+        },
+        "severity": {
+          "type": ["string", "null"],
+          "enum": ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL", null]
+        },
+        "confidence_record": {
+          "oneOf": [
+            { "$ref": "confidence.schema.json" },
+            { "type": "null" }
+          ]
+        },
+        "assertion_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+    "impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "users_or_accounts": { "type": ["integer", "null"], "minimum": 0 },
+        "requests_or_jobs": { "type": ["integer", "null"], "minimum": 0 },
+        "percentage": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "duration_seconds": { "type": ["number", "null"], "minimum": 0 },
+        "financial_amount": { "type": ["number", "null"] },
+        "financial_currency": { "type": ["string", "null"] },
+        "entity_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "regions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "environments": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "data_integrity": { "type": ["string", "null"] },
+        "slo_effect": { "type": ["string", "null"] },
+        "operational_effect": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
