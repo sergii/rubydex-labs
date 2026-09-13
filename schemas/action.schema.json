@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/action.schema.json",
+  "title": "Engineering action",
+  "description": "A concrete state-changing operation proposed, authorized, executed, and evaluated independently from reasoning.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "kind",
+    "status",
+    "target_entity_refs",
+    "requested_by",
+    "recorded_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "id": { "type": "string", "minLength": 1 },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "ROLLBACK_DEPLOYMENT",
+        "REVERT_CHANGE",
+        "RESTART_SERVICE",
+        "SCALE_SERVICE",
+        "DISABLE_FEATURE_FLAG",
+        "ENABLE_FEATURE_FLAG",
+        "CREATE_TICKET",
+        "PAGE_OWNER",
+        "UPDATE_ARCHITECTURE",
+        "ADD_MONITORING",
+        "SUPPRESS_FINDING",
+        "ACKNOWLEDGE_FINDING",
+        "OTHER"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PROPOSED",
+        "PENDING_VERIFICATION",
+        "PENDING_APPROVAL",
+        "AUTHORIZED",
+        "EXECUTING",
+        "SUCCEEDED",
+        "FAILED",
+        "ROLLED_BACK",
+        "CANCELLED",
+        "EXPIRED"
+      ]
+    },
+    "target_entity_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "parameters": { "type": "object" },
+    "decision_ref": { "type": ["string", "null"] },
+    "finding_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "risk_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "incident_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "requested_by": { "type": "string", "minLength": 1 },
+    "authorized_by": { "type": ["string", "null"] },
+    "authorization_policy_ref": { "type": ["string", "null"] },
+    "approval_ref": { "type": ["string", "null"] },
+    "preconditions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "status"],
+        "properties": {
+          "description": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "enum": ["UNKNOWN", "SATISFIED", "FAILED"] },
+          "evidence_refs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "reversibility": {
+      "type": ["string", "null"],
+      "enum": ["REVERSIBLE", "PARTIALLY_REVERSIBLE", "IRREVERSIBLE", null]
+    },
+    "expected_blast_radius": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "summary": { "type": ["string", "null"] },
+        "entity_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+    "verification_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "result_evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "outcome": {
+      "type": ["string", "null"],
+      "enum": ["EFFECTIVE", "PARTIALLY_EFFECTIVE", "INEFFECTIVE", "HARMFUL", "INCONCLUSIVE", null]
+    },
+    "rollback_action_ref": { "type": ["string", "null"] },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "started_at": { "type": ["string", "null"], "format": "date-time" },
+    "completed_at": { "type": ["string", "null"], "format": "date-time" },
+    "metadata": { "type": "object" }
+  }
+}
