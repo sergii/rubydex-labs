@@ -82,6 +82,30 @@ Before Codex starts, the workflow removes `ground-truth.json` from the sample ch
 
 Rubydex MCP indexing for B and C is scoped to `labs/06-xray-impact/fixture`, so benchmark documentation, knowledge, skills, and ground truth are not part of the semantic index.
 
+## Run on GitHub Actions
+
+The primary runner is the dedicated workflow:
+
+```text
+GitHub -> Actions -> Rubydex X-Ray benchmark -> Run workflow
+```
+
+Inputs:
+
+- model: defaults to `gpt-5.6-luna`;
+- reasoning: `low`, `medium`, or `high`;
+- repetitions: `1` or `3` samples per condition.
+
+The default produces nine independent samples:
+
+```text
+3 x A - source only
+3 x B - Rubydex semantic-first
+3 x C - Rubydex + architecture knowledge + skill
+```
+
+The aggregate job publishes a Markdown Step Summary and the `xray-benchmark-report` artifact containing `report.md` and `report.json`.
+
 ## Expected interpretation
 
 A useful result is not necessarily "C wins everything". The interesting split is:
