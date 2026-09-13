@@ -57,3 +57,19 @@ For `impact`, read-first rubric coverage is reported separately from structural 
 Rubydex should have little economic advantage on trivial lookup, become a token/context saver on concentrated semantic discovery, and become primarily a correctness/reliability tool as the task expands into multi-part impact mapping that requires source verification and classification.
 
 The interesting output is the **crossover curve**, not a single winner.
+
+## Observed repeated result
+
+The 3×A + 3×B run per scenario found the crossover immediately after trivial declaration lookup:
+
+| Scenario | Exact A | Exact B | B vs A time | B vs A total tokens | B vs A cost |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| declaration | 3/3 | 3/3 | +63.4% | +141.7% | +43.5% |
+| descendants | 1/3 | 3/3 | -18.0% | -37.3% | -36.2% |
+| references | 3/3 | 3/3 | -27.0% | -50.9% | -42.2% |
+| neighborhood | 2/3 | 3/3 | -16.8% | -28.4% | -25.2% |
+| impact | 1/3 | 3/3 | +3.3% | -33.7% | -22.7% |
+
+Working interpretation: ordinary navigation wins for a single declaration lookup; once the task asks for a semantic relationship set, Rubydex amortizes its overhead and becomes a context/cost saver, with an additional correctness benefit on descendants, neighborhood, and impact tasks. Broad impact mapping keeps the context advantage but wall time flattens because source verification and synthesis dominate.
+
+Full result: [`benchmarks/results/2026-09-13-lab-07-task-shape-boundary.md`](../../benchmarks/results/2026-09-13-lab-07-task-shape-boundary.md).
