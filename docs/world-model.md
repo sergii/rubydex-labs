@@ -15,6 +15,9 @@ sensor observation
 immutable evidence
       |
       v
+identity resolution
+      |
+      v
 assertion
       |
       v
@@ -75,6 +78,48 @@ Incident: INC-92
 ```
 
 Entity identity should survive display-name changes where possible.
+
+The storage-independent entity contract is defined in [`../schemas/entity.schema.json`](../schemas/entity.schema.json).
+
+### Identity link
+
+Different sensors observe different representations. A Ruby constant, an OTEL resource, a deployment unit, and a business capability can all refer to related parts of the same product area without being the same entity.
+
+Cross-sensor evidence fusion therefore requires an explicit identity layer before assertions are projected together.
+
+```text
+sensor-native representation
+        |
+        v
+candidate world-model entities
+        |
+        v
+identity evidence
+        |
+        v
+versioned identity link
+        |
+        v
+stable entity reference
+```
+
+Identity links can express strict identity or weaker architecture/representation relations such as:
+
+```text
+SAME_AS
+RENAMED_FROM
+REPRESENTS
+OBSERVED_AS
+IMPLEMENTED_BY
+DEPLOYED_AS
+SERVES_CAPABILITY
+```
+
+`SAME_AS` is intentionally strict. A capability, service, code symbol, deployment unit, and runtime resource should not be collapsed into one object merely because they share a name.
+
+Identity links carry provenance, confidence, temporal validity, resolver information, and resolution state. They can be superseded or retracted without rewriting historical observations.
+
+See [`identity-model.md`](identity-model.md) and [`../schemas/identity-link.schema.json`](../schemas/identity-link.schema.json).
 
 ### Evidence
 
@@ -192,12 +237,17 @@ RUNTIME observed dependency
 
 is not necessarily a contradiction. One describes possibility; the other describes observation.
 
+Identity conflicts are also first-class. If two sensors map the same representation to different candidate entities, the system should retain the ambiguity or conflict rather than silently merge the entities.
+
 ## World model as a materialized projection
 
 The current world model can be materialized from active assertions:
 
 ```text
 Evidence Store
+     |
+     v
+Identity Resolution
      |
      v
 Assertion Store
@@ -263,6 +313,8 @@ prediction evaluation
 
 The prediction is never rewritten into an observation. The relationship between them records whether reality supported, contradicted, or remained inconclusive about the prediction.
 
+Prediction evaluation requires identity continuity: the pre-deploy predicted subject/object and the post-deploy observed entities must resolve onto compatible world-model identities before they can be compared.
+
 ## Confidence
 
 Confidence must not become a decorative LLM number.
@@ -275,6 +327,7 @@ Where possible it should be derived from evidence properties such as:
 - corroboration across independent sensors;
 - contradictions;
 - scope match;
+- identity-resolution strength;
 - historical prediction calibration.
 
 A deterministic complete Rubydex set can have strong confidence in set membership for a pinned revision while still saying nothing about runtime reachability or business importance.
@@ -297,6 +350,9 @@ A deterministic complete Rubydex set can have strong confidence in set membershi
                                   |
                                   v
                          immutable evidence
+                                  |
+                                  v
+                       identity resolution
                                   |
                                   v
                          evidence-backed
@@ -333,9 +389,10 @@ The world model is **not**:
 - a replacement for source code;
 - a replacement for telemetry;
 - an architecture wiki with AI summaries;
-- a bag of embeddings.
+- a bag of embeddings;
+- a global name-matching table.
 
-It is a temporal, evidence-backed set of claims about the software system, with explicit provenance and truth-source semantics.
+It is a temporal, evidence-backed set of claims about the software system, with explicit provenance, identity, and truth-source semantics.
 
 ## Research implication
 
@@ -344,9 +401,9 @@ The Labs should continue to test the layers independently before building a gene
 ```text
 Lab 11 -> can we plan evidence?
 Lab 12 -> can we preserve authoritative evidence?
-Lab 13 -> can we combine different truth sources?
+Lab 13 -> can we combine different truth sources and resolve identity across them?
 Lab 14 -> can we add observed runtime truth?
-Lab 15 -> can assertions remain correct across time/change?
+Lab 15 -> can identities and assertions remain correct across time/change?
 Lab 16 -> can predictions be evaluated against later observations?
 ```
 
@@ -354,4 +411,4 @@ Only after those boundaries survive experiments should the repository attempt a 
 
 ## Working invariant
 
-> Evidence is immutable input. Assertions are versioned claims. The world model is a projection. Consequences are derived. Predictions must eventually face observations.
+> Evidence is immutable input. Identity links connect representations without collapsing semantics. Assertions are versioned claims. The world model is a projection. Consequences are derived. Predictions must eventually face observations.
