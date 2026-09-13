@@ -42,15 +42,13 @@ jobs:
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
 
       - name: Download sample artifacts
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          RUN_ID: ${{ steps.source.outputs.run_id }}
-        run: |
-          python3 scripts/ci/fetch-benchmark-artifacts.py \
-            --repository "$REPOSITORY" \
-            --run-id "$RUN_ID" \
-            --output ci-artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: sample-*
+          path: ci-artifacts
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.source.outputs.run_id }}
 
       - name: Download completed sample job logs
         env:
