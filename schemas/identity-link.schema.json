@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/identity-link.schema.json",
+  "title": "Identity link",
+  "description": "Versioned, evidence-backed mapping between world-model entities or representations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "source_entity_id",
+    "relation",
+    "target_entity_id",
+    "resolution_state",
+    "evidence_refs",
+    "recorded_at",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "id": { "type": "string", "minLength": 1 },
+    "source_entity_id": { "type": "string", "minLength": 1 },
+    "relation": {
+      "type": "string",
+      "enum": [
+        "SAME_AS",
+        "RENAMED_FROM",
+        "MOVED_FROM",
+        "REPRESENTS",
+        "OBSERVED_AS",
+        "IMPLEMENTED_BY",
+        "DEPLOYED_AS",
+        "OWNED_BY",
+        "SERVES_CAPABILITY",
+        "DERIVED_FROM"
+      ]
+    },
+    "target_entity_id": { "type": "string", "minLength": 1 },
+    "resolution_state": {
+      "type": "string",
+      "enum": ["RESOLVED", "PROBABLE", "AMBIGUOUS", "CONFLICTED", "UNRESOLVED"]
+    },
+    "confidence": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "resolver": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": ["string", "null"] },
+        "method": { "type": ["string", "null"] }
+      },
+      "required": ["name"]
+    },
+    "signals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "description"],
+        "properties": {
+          "kind": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "strength": {
+            "type": ["string", "null"],
+            "enum": ["VERY_STRONG", "STRONG", "MEDIUM", "WEAK", "VERY_WEAK", null]
+          }
+        }
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "valid_time": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "type": ["string", "null"], "format": "date-time" },
+        "to": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ACTIVE", "SUPERSEDED", "RETRACTED", "CONFLICTED", "EXPIRED"]
+    },
+    "supersedes": {
+      "type": ["string", "null"]
+    },
+    "metadata": {
+      "type": "object"
+    }
+  }
+}
