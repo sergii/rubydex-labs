@@ -1,0 +1,74 @@
+[
+  {
+    "id": "source-01",
+    "request": "Where is Categories::Types::Base actually defined? I only need the exact Ruby file and line so I can open it.",
+    "expected_class": "SOURCE_LOCAL",
+    "scenario": "declaration"
+  },
+  {
+    "id": "source-02",
+    "request": "Point me to the declaration of Categories::Types::Base in this checkout. Don't map usages yet — just tell me where the constant is defined.",
+    "expected_class": "SOURCE_LOCAL",
+    "scenario": "declaration"
+  },
+  {
+    "id": "source-03",
+    "request": "I'm about to inspect Categories::Types::Base. Which source location declares it? Nothing else for now.",
+    "expected_class": "SOURCE_LOCAL",
+    "scenario": "declaration"
+  },
+  {
+    "id": "semantic-01",
+    "request": "Which concrete named classes inherit from Categories::Types::Base across this repository? I need the complete resolved set, not textual name matches.",
+    "expected_class": "SEMANTIC_RELATIONSHIP_SET",
+    "scenario": "descendants"
+  },
+  {
+    "id": "semantic-02",
+    "request": "Find every direct production reference to Categories::Types::Base in this Discourse checkout. Exclude specs and lexical lookalikes.",
+    "expected_class": "SEMANTIC_RELATIONSHIP_SET",
+    "scenario": "references"
+  },
+  {
+    "id": "semantic-03",
+    "request": "Before touching Categories::Types::Base, give me its declaration, all named descendants, and every direct production reference in the repository.",
+    "expected_class": "SEMANTIC_RELATIONSHIP_SET",
+    "scenario": "neighborhood"
+  },
+  {
+    "id": "semantic-04",
+    "request": "I'm planning a change to Categories::Types::Base. Build the structural blast-radius map: declaration, named descendants, production users, plugin extensions, direct-reference specs, and a small read-first set.",
+    "expected_class": "SEMANTIC_RELATIONSHIP_SET",
+    "scenario": "impact"
+  },
+  {
+    "id": "semantic-05",
+    "request": "If I alter the contract of Categories::Types::Base, start at its declaration and map the subclasses plus direct production users that could be structurally affected. I need the repository-wide resolved neighborhood.",
+    "expected_class": "SEMANTIC_RELATIONSHIP_SET",
+    "scenario": "neighborhood"
+  },
+  {
+    "id": "runtime-01",
+    "request": "The code path looks correct statically, but checkout got slower after the deploy. Did p95 latency or database query count actually regress in production, and where in the runtime path did it happen?",
+    "expected_class": "RUNTIME_BEHAVIOR",
+    "scenario": null
+  },
+  {
+    "id": "runtime-02",
+    "request": "A background job sometimes times out and retries. I need to know what actually happened on real executions — trace spans, retries, latency, and errors — not just what the source code could do.",
+    "expected_class": "RUNTIME_BEHAVIOR",
+    "scenario": null
+  },
+  {
+    "id": "architecture-01",
+    "request": "Is it architecturally allowed for Orders::Refund to call Payments::InternalGateway directly, and which boundary or policy does that violate if not?",
+    "expected_class": "ARCHITECTURE_KNOWLEDGE",
+    "scenario": null
+  },
+  {
+    "id": "architecture-02",
+    "request": "Which business capability owns refund capture, what customer flow depends on it, and what architecture policy should a proposed cross-module call obey?",
+    "expected_class": "ARCHITECTURE_KNOWLEDGE",
+    "scenario": null
+  }
+]

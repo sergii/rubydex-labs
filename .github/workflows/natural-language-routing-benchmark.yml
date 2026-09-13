@@ -1,0 +1,358 @@
+name: Rubydex natural-language evidence routing benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Downstream OpenAI model
+        required: true
+        type: string
+        default: gpt-5.6-luna
+      classifier_model:
+        description: Evidence classifier model
+        required: true
+        type: string
+        default: gpt-5.6-luna
+      reasoning:
+        description: Downstream reasoning effort
+        required: true
+        type: choice
+        default: medium
+        options: [low, medium, high]
+      repetitions:
+        description: Samples per task/condition
+        required: true
+        type: choice
+        default: "3"
+        options: ["1", "3"]
+  push:
+    branches: [main]
+    paths:
+      - benchmarks/requests/natural-language-routing.json
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: rubydex-natural-language-routing-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  config:
+    name: resolve-config
+    runs-on: ubuntu-latest
+    outputs:
+      model: ${{ steps.resolve.outputs.model }}
+      classifier_model: ${{ steps.resolve.outputs.classifier_model }}
+      reasoning: ${{ steps.resolve.outputs.reasoning }}
+      repeats_json: ${{ steps.resolve.outputs.repeats_json }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_MODEL: ${{ inputs.model }}
+          INPUT_CLASSIFIER_MODEL: ${{ inputs.classifier_model }}
+          INPUT_REASONING: ${{ inputs.reasoning }}
+          INPUT_REPETITIONS: ${{ inputs.repetitions }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          from pathlib import Path
+          if os.environ["EVENT_NAME"] == "workflow_dispatch":
+              cfg = {
+                  "model": os.environ["INPUT_MODEL"],
+                  "classifier_model": os.environ["INPUT_CLASSIFIER_MODEL"],
+                  "reasoning": os.environ["INPUT_REASONING"],
+                  "repetitions": int(os.environ["INPUT_REPETITIONS"]),
+              }
+          else:
+              cfg = json.loads(Path("benchmarks/requests/natural-language-routing.json").read_text())
+          if cfg["reasoning"] not in {"low", "medium", "high"}: raise SystemExit("unsupported reasoning")
+          if int(cfg["repetitions"]) not in {1, 3}: raise SystemExit("repetitions must be 1 or 3")
+          if not str(cfg["model"]).strip(): raise SystemExit("model must not be empty")
+          if not str(cfg["classifier_model"]).strip(): raise SystemExit("classifier_model must not be empty")
+          print(f"model={cfg['model']}")
+          print(f"classifier_model={cfg['classifier_model']}")
+          print(f"reasoning={cfg['reasoning']}")
+          print("repeats_json=[1]" if int(cfg["repetitions"]) == 1 else "repeats_json=[1,2,3]")
+          PY
+
+  benchmark:
+    name: sample-${{ matrix.task }}-${{ matrix.condition }}-r${{ matrix.repeat }}
+    needs: config
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        task:
+          - source-01
+          - source-02
+          - source-03
+          - semantic-01
+          - semantic-02
+          - semantic-03
+          - semantic-04
+          - semantic-05
+          - runtime-01
+          - runtime-02
+          - architecture-01
+          - architecture-02
+        condition: [H, O]
+        repeat: ${{ fromJSON(needs.config.outputs.repeats_json) }}
+
+    steps:
+      - name: Checkout rubydex-labs
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Validate OpenAI secret
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: test -n "$OPENAI_API_KEY" || (echo "OPENAI_API_KEY missing" >&2; exit 1)
+
+      - name: Prepare classification sample
+        id: prepare
+        env:
+          TASK_ID: ${{ matrix.task }}
+          CONDITION: ${{ matrix.condition }}
+          REPEAT: ${{ matrix.repeat }}
+          MODEL: ${{ needs.config.outputs.model }}
+          CLASSIFIER_MODEL: ${{ needs.config.outputs.classifier_model }}
+          REASONING: ${{ needs.config.outputs.reasoning }}
+        run: |
+          set -euo pipefail
+          output_dir="$RUNNER_TEMP/benchmark-output"
+          request_file="$RUNNER_TEMP/request.txt"
+          mkdir -p "$output_dir"
+          python3 - "$TASK_ID" "$request_file" "$output_dir/meta.json" "$GITHUB_OUTPUT" <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          task_id, request_path, meta_path, output_path = sys.argv[1:]
+          tasks = json.loads(Path("labs/10-natural-language-evidence-routing/requests.json").read_text())
+          task = next((item for item in tasks if item["id"] == task_id), None)
+          if task is None:
+              raise SystemExit(f"unknown task id: {task_id}")
+          Path(request_path).write_text(task["request"] + "\n")
+          meta = {
+              "lab": "10",
+              "task_id": task_id,
+              "condition": os.environ["CONDITION"],
+              "repeat": int(os.environ["REPEAT"]),
+              "expected_class": task["expected_class"],
+              "scenario": task.get("scenario"),
+              "model": os.environ["MODEL"],
+              "classifier_model": os.environ["CLASSIFIER_MODEL"],
+              "reasoning": os.environ["REASONING"],
+              "repository": "discourse/discourse",
+              "revision": "c89b1a0506a3ec0a249b7f23ac86763b358dc177",
+              "target": "Categories::Types::Base",
+          }
+          Path(meta_path).write_text(json.dumps(meta, indent=2) + "\n")
+          with open(output_path, "a") as out:
+              print(f"expected_class={task['expected_class']}", file=out)
+              print(f"scenario={task.get('scenario') or ''}", file=out)
+          PY
+          echo "output_dir=$output_dir" >> "$GITHUB_OUTPUT"
+          echo "request_file=$request_file" >> "$GITHUB_OUTPUT"
+
+      - name: Classify evidence route
+        id: classify
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CONDITION: ${{ matrix.condition }}
+          CLASSIFIER_MODEL: ${{ needs.config.outputs.classifier_model }}
+          EXPECTED_CLASS: ${{ steps.prepare.outputs.expected_class }}
+          SCENARIO: ${{ steps.prepare.outputs.scenario }}
+          REQUEST_FILE: ${{ steps.prepare.outputs.request_file }}
+          OUTPUT_DIR: ${{ steps.prepare.outputs.output_dir }}
+        run: |
+          set -euo pipefail
+          if [ "$CONDITION" = "H" ]; then
+            python3 scripts/ci/classify-evidence-route.py \
+              --request-file "$REQUEST_FILE" \
+              --model "$CLASSIFIER_MODEL" \
+              --reasoning low \
+              --output "$OUTPUT_DIR/classifier.json"
+          else
+            python3 - "$OUTPUT_DIR/classifier.json" <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          Path(sys.argv[1]).write_text(json.dumps({
+              "mode": "oracle",
+              "model": None,
+              "reasoning": None,
+              "response_id": None,
+              "predicted_class": os.environ["EXPECTED_CLASS"],
+              "rationale": "Hidden benchmark oracle label.",
+              "elapsed_seconds": 0.0,
+              "usage": {},
+          }, indent=2) + "\n")
+          PY
+          fi
+
+          selected_class="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["predicted_class"])' "$OUTPUT_DIR/classifier.json")"
+          case "$selected_class" in
+            SOURCE_LOCAL) route="source" ;;
+            SEMANTIC_RELATIONSHIP_SET) route="semantic" ;;
+            RUNTIME_BEHAVIOR) route="runtime" ;;
+            ARCHITECTURE_KNOWLEDGE) route="architecture" ;;
+            *) echo "unknown class: $selected_class" >&2; exit 1 ;;
+          esac
+
+          execute=false
+          if [ -n "$SCENARIO" ] && { [ "$route" = "source" ] || [ "$route" = "semantic" ]; }; then
+            execute=true
+          fi
+
+          echo "selected_class=$selected_class" >> "$GITHUB_OUTPUT"
+          echo "route=$route" >> "$GITHUB_OUTPUT"
+          echo "execute=$execute" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout pinned Discourse
+        if: ${{ steps.classify.outputs.execute == 'true' }}
+        uses: actions/checkout@v5
+        with:
+          repository: discourse/discourse
+          ref: c89b1a0506a3ec0a249b7f23ac86763b358dc177
+          path: discourse
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Set up Ruby for semantic route
+        if: ${{ steps.classify.outputs.execute == 'true' && steps.classify.outputs.route == 'semantic' }}
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4.8"
+          bundler-cache: true
+
+      - name: Configure routed downstream agent
+        if: ${{ steps.classify.outputs.execute == 'true' }}
+        id: downstream
+        env:
+          ROUTE: ${{ steps.classify.outputs.route }}
+          SCENARIO: ${{ steps.prepare.outputs.scenario }}
+          REQUEST_FILE: ${{ steps.prepare.outputs.request_file }}
+        run: |
+          set -euo pipefail
+          output_dir="${{ steps.prepare.outputs.output_dir }}"
+          codex_home="$RUNNER_TEMP/codex-home"
+          fixture_dir="$RUNNER_TEMP/discourse-workspace"
+          prompt_file="$RUNNER_TEMP/lab10-task.md"
+          mkdir -p "$codex_home"
+          mv discourse "$fixture_dir"
+
+          if [ "$ROUTE" = "semantic" ]; then
+            condition_file="labs/09-deterministic-evidence-routing/condition-routed-semantic.md"
+          else
+            condition_file="labs/09-deterministic-evidence-routing/condition-routed-source.md"
+          fi
+
+          cat labs/08-autonomous-semantic-escalation/shared-guidance.md "$condition_file" > "$prompt_file"
+          {
+            echo
+            echo "Original engineering request:"
+            echo
+            cat "$REQUEST_FILE"
+            echo
+            echo "---"
+            echo
+            echo "Normalized benchmark output contract:"
+            echo
+            cat "labs/07-task-shape-boundary/scenarios/${SCENARIO}.md"
+          } >> "$prompt_file"
+
+          cat > "$codex_home/config.toml" <<EOF
+          approval_policy = "never"
+          EOF
+
+          if [ "$ROUTE" = "semantic" ]; then
+            cat >> "$codex_home/config.toml" <<EOF
+
+          [mcp_servers.rubydex]
+          command = "env"
+          args = ["BUNDLE_GEMFILE=${GITHUB_WORKSPACE}/Gemfile", "bundle", "exec", "rdx", "mcp"]
+          cwd = "${fixture_dir}"
+          enabled = true
+          required = false
+          default_tools_approval_mode = "approve"
+          EOF
+          fi
+
+          echo "prompt_file=$prompt_file" >> "$GITHUB_OUTPUT"
+          echo "codex_home=$codex_home" >> "$GITHUB_OUTPUT"
+          echo "fixture_dir=$fixture_dir" >> "$GITHUB_OUTPUT"
+          echo "output_dir=$output_dir" >> "$GITHUB_OUTPUT"
+
+      - name: Run routed Codex sample
+        if: ${{ steps.classify.outputs.execute == 'true' }}
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ steps.downstream.outputs.prompt_file }}
+          output-file: ${{ steps.downstream.outputs.output_dir }}/final.txt
+          working-directory: ${{ steps.downstream.outputs.fixture_dir }}
+          codex-home: ${{ steps.downstream.outputs.codex_home }}
+          model: ${{ needs.config.outputs.model }}
+          effort: ${{ needs.config.outputs.reasoning }}
+          permission-profile: ":read-only"
+          safety-strategy: drop-sudo
+          allow-bots: true
+          codex-args: '["--json","--ephemeral"]'
+
+      - name: Upload sample artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-${{ matrix.task }}-${{ matrix.condition }}-r${{ matrix.repeat }}
+          path: ${{ steps.prepare.outputs.output_dir }}
+          if-no-files-found: warn
+          retention-days: 14
+
+  aggregate:
+    name: aggregate
+    needs: [config, benchmark]
+    if: ${{ always() && needs.config.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: sample-*
+          path: ci-artifacts
+          merge-multiple: false
+      - name: Download sample logs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 scripts/ci/fetch-benchmark-job-logs.py --repository "$REPOSITORY" --run-id "$RUN_ID" --output ci-logs
+      - name: Aggregate benchmark
+        env:
+          MODEL: ${{ needs.config.outputs.model }}
+          CLASSIFIER_MODEL: ${{ needs.config.outputs.classifier_model }}
+          REASONING: ${{ needs.config.outputs.reasoning }}
+        run: |
+          python3 scripts/ci/aggregate-natural-language-routing.py \
+            --model "$MODEL" \
+            --classifier-model "$CLASSIFIER_MODEL" \
+            --reasoning "$REASONING" \
+            --artifacts ci-artifacts \
+            --logs ci-logs \
+            --output ci-report
+          cat ci-report/report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: natural-language-routing-report
+          path: ci-report
+          if-no-files-found: warn
+          retention-days: 30
