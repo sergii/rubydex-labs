@@ -18,7 +18,13 @@ MODEL_PRICING = {
     "gpt-5.6-luna": {"input": 0.20, "cached": 0.02, "output": 1.20},
     "gpt-5-nano": {"input": 0.05, "cached": 0.005, "output": 0.40},
 }
-CONDITIONS = ("A", "B", "C")
+CONDITIONS = ("A", "B", "C", "D")
+CONDITION_LABELS = {
+    "A": "text",
+    "B": "Rubydex",
+    "C": "Rubydex + knowledge",
+    "D": "knowledge only",
+}
 
 
 def strip_line(line: str) -> str:
@@ -74,19 +80,10 @@ def score_final(final: str, truth: dict) -> dict:
     sections = split_sections(final)
     impacts = score_set(canonical_ids(sections.get("Impacts", []), "IMPACT-"), set(truth["impacts"]))
     risks = score_set(canonical_ids(sections.get("Risks", []), "RISK-"), set(truth["risks"]))
-    verification = score_set(
-        canonical_ids(sections.get("Verification", []), "VERIFY-"),
-        set(truth["verification"]),
-    )
-    policies = score_set(
-        canonical_ids(sections.get("Policy violations", []), "POLICY-"),
-        set(truth["policy_violations"]),
-    )
+    verification = score_set(canonical_ids(sections.get("Verification", []), "VERIFY-"), set(truth["verification"]))
+    policies = score_set(canonical_ids(sections.get("Policy violations", []), "POLICY-"), set(truth["policy_violations"]))
     recommendation_text = "\n".join(sections.get("Recommendation", []))
-    recommendation = next(
-        (value for value in ("SAFE", "CAUTION", "BLOCK") if re.search(rf"\b{value}\b", recommendation_text)),
-        None,
-    )
+    recommendation = next((value for value in ("SAFE", "CAUTION", "BLOCK") if re.search(rf"\b{value}\b", recommendation_text)), None)
     consequence_exact = impacts["exact"] and risks["exact"] and verification["exact"]
     knowledge_exact = policies["exact"] and recommendation == truth["recommendation"]
     return {
@@ -106,11 +103,7 @@ def decode_log(path: Path) -> str:
     data = path.read_bytes()
     if data.startswith(b"PK"):
         with zipfile.ZipFile(BytesIO(data)) as archive:
-            return "\n".join(
-                archive.read(name).decode("utf-8", errors="replace")
-                for name in archive.namelist()
-                if not name.endswith("/")
-            )
+            return "\n".join(archive.read(name).decode("utf-8", errors="replace") for name in archive.namelist() if not name.endswith("/"))
     return data.decode("utf-8", errors="replace")
 
 
@@ -142,17 +135,12 @@ def parse_json_event(line: str) -> dict | None:
 def parse_codex_log(path: Path) -> dict:
     if not path.exists():
         return {"log_found": False, "usage_found": False}
-
-    process_start = None
-    first_event = None
-    completed_at = None
+    process_start = first_event = completed_at = None
     usage: dict = {}
-
     for line in decode_log(path).splitlines():
         timestamp = parse_timestamp(line)
         if process_start is None and "Running:" in line and " exec " in line:
             process_start = timestamp
-
         event = parse_json_event(line)
         if not event:
             continue
@@ -161,17 +149,13 @@ def parse_codex_log(path: Path) -> dict:
         if event.get("type") == "turn.completed":
             usage = event.get("usage") or {}
             completed_at = timestamp
-
     input_tokens = int(usage.get("input_tokens") or 0)
     cached_input_tokens = int(usage.get("cached_input_tokens") or 0)
     output_tokens = int(usage.get("output_tokens") or 0)
     reasoning_output_tokens = int(usage.get("reasoning_output_tokens") or 0)
     total_tokens = int(usage.get("total_tokens") or (input_tokens + output_tokens))
     started_at = process_start or first_event
-    elapsed_seconds = None
-    if started_at and completed_at:
-        elapsed_seconds = max((completed_at - started_at).total_seconds(), 0.0)
-
+    elapsed_seconds = max((completed_at - started_at).total_seconds(), 0.0) if started_at and completed_at else None
     return {
         "log_found": True,
         "usage_found": bool(usage),
@@ -243,32 +227,14 @@ def main() -> int:
         final = final_path.read_text(errors="replace") if final_path.exists() else ""
         metrics = parse_codex_log(Path(args.logs) / f"{job_name}.log")
         metrics["estimated_cost_usd"] = estimated_cost(args.model, metrics)
-        samples.append({
-            "job_name": job_name,
-            "meta": meta,
-            "metrics": metrics,
-            "score": score_final(final, truth),
-        })
+        samples.append({"job_name": job_name, "meta": meta, "metrics": metrics, "score": score_final(final, truth)})
 
     if not samples:
         raise SystemExit("No sample artifacts were found")
 
-    grouped = {
-        condition: [sample for sample in samples if sample["meta"]["condition"] == condition]
-        for condition in CONDITIONS
-    }
-    metric_names = [
-        "elapsed_seconds",
-        "total_tokens",
-        "uncached_input_tokens",
-        "output_tokens",
-        "reasoning_output_tokens",
-        "estimated_cost_usd",
-    ]
-    medians = {
-        condition: {name: median_metric(grouped[condition], name) for name in metric_names}
-        for condition in CONDITIONS
-    }
+    grouped = {condition: [s for s in samples if s["meta"]["condition"] == condition] for condition in CONDITIONS}
+    metric_names = ["elapsed_seconds", "total_tokens", "uncached_input_tokens", "output_tokens", "reasoning_output_tokens", "estimated_cost_usd"]
+    medians = {condition: {name: median_metric(grouped[condition], name) for name in metric_names} for condition in CONDITIONS}
 
     result = {
         "lab": "06",
@@ -280,7 +246,8 @@ def main() -> int:
         "deltas": {
             "b_vs_a": {name: pct_delta(medians["A"][name], medians["B"][name]) for name in metric_names},
             "c_vs_b": {name: pct_delta(medians["B"][name], medians["C"][name]) for name in metric_names},
-            "c_vs_a": {name: pct_delta(medians["A"][name], medians["C"][name]) for name in metric_names},
+            "d_vs_a": {name: pct_delta(medians["A"][name], medians["D"][name]) for name in metric_names},
+            "c_vs_d": {name: pct_delta(medians["D"][name], medians["C"][name]) for name in metric_names},
         },
     }
     (output_root / "report.json").write_text(json.dumps(result, indent=2) + "\n")
@@ -292,7 +259,7 @@ def main() -> int:
         f"- Reasoning: `{args.reasoning}`",
         "- Fixture: `labs/06-xray-impact/fixture`",
         "- Fresh GitHub-hosted VM per sample: **yes**",
-        f"- Samples: " + ", ".join(f"{c}={len(grouped[c])}" for c in CONDITIONS),
+        "- Samples: " + ", ".join(f"{c}={len(grouped[c])}" for c in CONDITIONS),
         "",
         "## Samples",
         "",
@@ -301,39 +268,29 @@ def main() -> int:
     ]
     for sample in sorted(samples, key=lambda item: (item["meta"]["condition"], item["meta"]["repeat"])):
         lines.append(
-            f"| {sample['job_name']} | "
-            f"{'yes' if sample['score']['consequence_exact'] else 'no'} | "
-            f"{'yes' if sample['score']['knowledge_exact'] else 'no'} | "
-            f"{fmt(sample['metrics'].get('elapsed_seconds'), 1)} | "
+            f"| {sample['job_name']} | {'yes' if sample['score']['consequence_exact'] else 'no'} | "
+            f"{'yes' if sample['score']['knowledge_exact'] else 'no'} | {fmt(sample['metrics'].get('elapsed_seconds'), 1)} | "
             f"{fmt(sample['metrics'].get('total_tokens'))} |"
         )
 
-    lines.extend([
+    lines += [
         "",
         "## Median correctness",
         "",
         "| Condition | Impact recall | Impact precision | Risk recall | Risk precision | Verification recall | Policy recall |",
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
-    ])
+    ]
     for condition in CONDITIONS:
         items = grouped[condition]
         lines.append(
-            f"| {condition} | "
-            f"{median_score(items, 'impacts', 'recall'):.1%} | "
-            f"{median_score(items, 'impacts', 'precision'):.1%} | "
-            f"{median_score(items, 'risks', 'recall'):.1%} | "
-            f"{median_score(items, 'risks', 'precision'):.1%} | "
-            f"{median_score(items, 'verification', 'recall'):.1%} | "
-            f"{median_score(items, 'policy_violations', 'recall'):.1%} |"
+            f"| {condition} | {median_score(items, 'impacts', 'recall'):.1%} | {median_score(items, 'impacts', 'precision'):.1%} | "
+            f"{median_score(items, 'risks', 'recall'):.1%} | {median_score(items, 'risks', 'precision'):.1%} | "
+            f"{median_score(items, 'verification', 'recall'):.1%} | {median_score(items, 'policy_violations', 'recall'):.1%} |"
         )
 
-    lines.extend([
-        "",
-        "## Median cost / latency",
-        "",
-        "| Metric | A - text | B - Rubydex | C - Rubydex + knowledge |",
-        "| --- | ---: | ---: | ---: |",
-    ])
+    header = "| Metric | " + " | ".join(f"{c} - {CONDITION_LABELS[c]}" for c in CONDITIONS) + " |"
+    separator = "| --- | " + " | ".join("---:" for _ in CONDITIONS) + " |"
+    lines += ["", "## Median cost / latency", "", header, separator]
     labels = {
         "elapsed_seconds": "elapsed seconds",
         "total_tokens": "total tokens",
@@ -352,20 +309,20 @@ def main() -> int:
                 values.append(fmt(value, 1))
             else:
                 values.append(fmt(value))
-        lines.append(f"| {labels[name]} | {values[0]} | {values[1]} | {values[2]} |")
+        lines.append(f"| {labels[name]} | " + " | ".join(values) + " |")
 
-    lines.extend([
+    lines += [
         "",
         "## Interpretation guardrails",
         "",
-        "- Impact/risk/verification use the same closed candidate vocabulary in all three conditions.",
-        "- Policy IDs are not exposed to A/B. C receives explicit company architecture knowledge and a targeted skill.",
-        "- `consequence_exact` intentionally excludes policy/recommendation so Rubydex can be evaluated separately from company knowledge.",
+        "- Impact/risk/verification use the same closed candidate vocabulary in all four conditions.",
+        "- Policy IDs are not exposed to A/B. C and D receive the same explicit company architecture knowledge and targeted skill.",
+        "- C has Rubydex + knowledge; D has the same knowledge without Rubydex, isolating the knowledge contribution.",
+        "- `consequence_exact` intentionally excludes policy/recommendation.",
         "- Rubydex MCP startup/indexing is included in B/C measured agent time.",
         "- Token/cost differences should be interpreted from repeated samples, not a single run.",
         "",
-    ])
-
+    ]
     (output_root / "report.md").write_text("\n".join(lines))
     print("\n".join(lines))
     return 0
