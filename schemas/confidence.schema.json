@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/confidence.schema.json",
+  "title": "Evidence-backed confidence record",
+  "description": "Inspectable confidence state for an assertion, identity link, prediction, or derived conclusion.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "state",
+    "score",
+    "dimensions",
+    "method",
+    "explanation",
+    "recorded_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "state": {
+      "type": "string",
+      "enum": [
+        "ESTABLISHED",
+        "SUPPORTED",
+        "TENTATIVE",
+        "UNKNOWN",
+        "CONFLICTED",
+        "REFUTED",
+        "STALE"
+      ]
+    },
+    "score": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_strength": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "completeness": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "freshness": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "scope_match": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "identity_resolution": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "corroboration": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "contradiction": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "calibration": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+      }
+    },
+    "completeness_state": {
+      "type": ["string", "null"],
+      "enum": ["COMPLETE", "PARTIAL", "UNKNOWN", "NOT_APPLICABLE", null]
+    },
+    "method": {
+      "type": "string",
+      "minLength": 1
+    },
+    "explanation": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "supporting_evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "conflicting_assertion_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "missing_evidence": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
