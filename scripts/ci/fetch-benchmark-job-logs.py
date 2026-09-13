@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download completed sample job logs for the current GitHub Actions run."""
+"""Download completed sample job logs for a GitHub Actions run."""
 
 from __future__ import annotations
 
@@ -9,7 +9,28 @@ import os
 from pathlib import Path
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
+
+
+class SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Do not forward GitHub auth headers to signed artifact/log hosts."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if redirected is None:
+            return None
+
+        old_host = urllib.parse.urlparse(req.full_url).netloc
+        new_host = urllib.parse.urlparse(newurl).netloc
+        if old_host != new_host:
+            redirected.remove_header("Authorization")
+            redirected.remove_header("X-GitHub-Api-Version")
+            redirected.remove_header("Accept")
+        return redirected
+
+
+OPENER = urllib.request.build_opener(SafeRedirectHandler())
 
 
 def request(url: str, token: str) -> bytes:
@@ -22,7 +43,7 @@ def request(url: str, token: str) -> bytes:
             "User-Agent": "rubydex-labs-benchmark",
         },
     )
-    with urllib.request.urlopen(req, timeout=30) as response:
+    with OPENER.open(req, timeout=30) as response:
         return response.read()
 
 
@@ -59,7 +80,7 @@ def main() -> int:
         last_error: Exception | None = None
 
         # GitHub can need a few seconds after a job completes before its log
-        # archive/text endpoint becomes available to a downstream job.
+        # archive/text endpoint becomes available to a downstream workflow.
         for attempt in range(6):
             try:
                 data = request(logs_url, token)
