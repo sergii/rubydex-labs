@@ -1,0 +1,58 @@
+{
+  "repository": "discourse/discourse",
+  "revision": "c89b1a0506a3ec0a249b7f23ac86763b358dc177",
+  "target": "Categories::Types::Base",
+  "declaration": "app/services/categories/types/base.rb:5",
+  "named_descendants": [
+    "Categories::Types::Discussion | app/services/categories/types/discussion.rb:5",
+    "DiscourseEvents::Categories::Types::Events | plugins/discourse-events/app/services/discourse_events/categories/types/events.rb:6",
+    "DiscourseSolved::Categories::Types::Support | plugins/discourse-solved/app/services/discourse_solved/categories/types/support.rb:6",
+    "DiscourseTopicVoting::Categories::Types::Ideas | plugins/discourse-topic-voting/app/services/discourse_topic_voting/categories/types/ideas.rb:6",
+    "MockCategoryType | spec/serializers/category_serializer_spec.rb:331",
+    "MockCategoryType | spec/system/simplified_category_creation_spec.rb:24"
+  ],
+  "direct_production_references": [
+    "app/services/categories/types/base.rb:158",
+    "app/services/categories/types/discussion.rb:5",
+    "plugins/discourse-events/app/services/discourse_events/categories/types/events.rb:6",
+    "plugins/discourse-solved/app/services/discourse_solved/categories/types/support.rb:6",
+    "plugins/discourse-topic-voting/app/services/discourse_topic_voting/categories/types/ideas.rb:6"
+  ],
+  "plugin_extensions": [
+    "DiscourseEvents::Categories::Types::Events | plugins/discourse-events/app/services/discourse_events/categories/types/events.rb:6",
+    "DiscourseSolved::Categories::Types::Support | plugins/discourse-solved/app/services/discourse_solved/categories/types/support.rb:6",
+    "DiscourseTopicVoting::Categories::Types::Ideas | plugins/discourse-topic-voting/app/services/discourse_topic_voting/categories/types/ideas.rb:6"
+  ],
+  "direct_reference_spec_files": [
+    "spec/requests/admin/config/category_management_controller_spec.rb",
+    "spec/requests/categories_controller_spec.rb",
+    "spec/serializers/category_serializer_spec.rb",
+    "spec/services/categories/configure_spec.rb",
+    "spec/services/categories/type_registry_spec.rb",
+    "spec/services/categories/types/base_spec.rb",
+    "spec/services/list_admin_categories_spec.rb",
+    "spec/system/simplified_category_creation_spec.rb"
+  ],
+  "read_first_rubric": {
+    "max_files": 12,
+    "categories": {
+      "target_implementation": ["app/services/categories/types/base.rb"],
+      "core_subclass": ["app/services/categories/types/discussion.rb"],
+      "plugin_extension": [
+        "plugins/discourse-events/app/services/discourse_events/categories/types/events.rb",
+        "plugins/discourse-solved/app/services/discourse_solved/categories/types/support.rb",
+        "plugins/discourse-topic-voting/app/services/discourse_topic_voting/categories/types/ideas.rb"
+      ],
+      "direct_base_spec": ["spec/services/categories/types/base_spec.rb"],
+      "representative_integration_spec": [
+        "spec/services/categories/type_registry_spec.rb",
+        "spec/serializers/category_serializer_spec.rb",
+        "spec/services/categories/configure_spec.rb",
+        "spec/requests/categories_controller_spec.rb",
+        "spec/requests/admin/config/category_management_controller_spec.rb",
+        "spec/services/list_admin_categories_spec.rb",
+        "spec/system/simplified_category_creation_spec.rb"
+      ]
+    }
+  }
+}
