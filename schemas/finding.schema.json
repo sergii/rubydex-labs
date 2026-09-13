@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/finding.schema.json",
+  "title": "Engineering finding",
+  "description": "Normalized evidence-backed engineering problem derived from assertions, conflicts, policies, runtime observations, or change analysis.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "finding_class",
+    "title",
+    "status",
+    "severity",
+    "confidence_record",
+    "subject_entity_refs",
+    "assertion_refs",
+    "evidence_refs",
+    "first_seen_at",
+    "last_seen_at",
+    "fingerprint"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "id": { "type": "string", "minLength": 1 },
+    "finding_class": {
+      "type": "string",
+      "enum": [
+        "ARCHITECTURE_DRIFT",
+        "POLICY_VIOLATION",
+        "IDENTITY_AMBIGUITY",
+        "STALE_KNOWLEDGE",
+        "COVERAGE_GAP",
+        "RUNTIME_ANOMALY",
+        "DEPENDENCY_RISK",
+        "CHANGE_RISK",
+        "DATA_INTEGRITY_RISK",
+        "RELIABILITY_RISK",
+        "PERFORMANCE_RISK",
+        "SECURITY_RISK",
+        "OWNERSHIP_GAP",
+        "PREDICTION_MISS",
+        "EVIDENCE_CONFLICT",
+        "UNKNOWN_RISK"
+      ]
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "summary": { "type": ["string", "null"] },
+    "status": {
+      "type": "string",
+      "enum": [
+        "OPEN",
+        "ACKNOWLEDGED",
+        "INVESTIGATING",
+        "MITIGATED",
+        "RESOLVED",
+        "SUPPRESSED",
+        "FALSE_POSITIVE",
+        "STALE",
+        "REGRESSED"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    },
+    "confidence_record": {
+      "$ref": "confidence.schema.json"
+    },
+    "subject_entity_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "affected_entity_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "assertion_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "conflict_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "policy_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "change_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "incident_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "owner_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "impact": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "summary": { "type": ["string", "null"] },
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "level"],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "CUSTOMER",
+                  "FINANCIAL",
+                  "DATA_INTEGRITY",
+                  "AVAILABILITY",
+                  "SECURITY",
+                  "COMPLIANCE",
+                  "OPERABILITY",
+                  "PERFORMANCE",
+                  "OTHER"
+                ]
+              },
+              "level": { "type": "string", "enum": ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL", "UNKNOWN"] },
+              "description": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "blast_radius": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "accounts_or_users": { "type": ["integer", "null"], "minimum": 0 },
+        "requests_or_jobs": { "type": ["integer", "null"], "minimum": 0 },
+        "percentage": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "entity_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "regions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "environments": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "financial_exposure": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "amount": { "type": ["number", "null"] },
+            "currency": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "verification": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description"],
+        "properties": {
+          "description": { "type": "string", "minLength": 1 },
+          "evidence_class": {
+            "type": ["string", "null"],
+            "enum": ["SOURCE_LOCAL", "SEMANTIC_RELATIONSHIP_SET", "RUNTIME_BEHAVIOR", "ARCHITECTURE_KNOWLEDGE", null]
+          }
+        }
+      }
+    },
+    "suggested_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "description"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "INVESTIGATE",
+              "COLLECT_MORE_EVIDENCE",
+              "ROLLBACK",
+              "REVERT_CHANGE",
+              "ADD_MONITORING",
+              "UPDATE_ARCHITECTURE",
+              "FIX_IDENTITY_MAPPING",
+              "REPAIR_POLICY_VIOLATION",
+              "CONTACT_OWNER",
+              "ACKNOWLEDGE",
+              "SUPPRESS",
+              "OTHER"
+            ]
+          },
+          "description": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "first_seen_at": { "type": "string", "format": "date-time" },
+    "last_seen_at": { "type": "string", "format": "date-time" },
+    "resolved_at": { "type": ["string", "null"], "format": "date-time" },
+    "fingerprint": { "type": "string", "minLength": 1 },
+    "supersedes": { "type": ["string", "null"] },
+    "metadata": { "type": "object" }
+  }
+}
