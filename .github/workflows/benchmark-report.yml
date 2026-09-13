@@ -1,0 +1,101 @@
+name: Rubydex benchmark report
+
+on:
+  workflow_run:
+    workflows: ["Rubydex benchmark"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Completed Rubydex benchmark workflow run ID
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  report:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout rubydex-labs
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Resolve source run
+        id: source
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_RUN_ID: ${{ inputs.source_run_id }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            run_id="$WORKFLOW_RUN_ID"
+          else
+            run_id="$DISPATCH_RUN_ID"
+          fi
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download sample artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ steps.source.outputs.run_id }}
+        run: |
+          python3 scripts/ci/fetch-benchmark-artifacts.py \
+            --repository "$REPOSITORY" \
+            --run-id "$RUN_ID" \
+            --output ci-artifacts
+
+      - name: Download completed sample job logs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ steps.source.outputs.run_id }}
+        run: |
+          python3 scripts/ci/fetch-benchmark-job-logs.py \
+            --repository "$REPOSITORY" \
+            --run-id "$RUN_ID" \
+            --output ci-logs
+
+      - name: Resolve benchmark metadata
+        id: meta
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+
+          meta_files = sorted(Path("ci-artifacts").glob("sample-*/meta.json"))
+          if not meta_files:
+              raise SystemExit("No sample meta.json files found")
+          meta = json.loads(meta_files[0].read_text())
+          for key in ("lab", "model", "reasoning"):
+              print(f"{key}={meta[key]}")
+          PY
+
+      - name: Aggregate benchmark
+        env:
+          LAB: ${{ steps.meta.outputs.lab }}
+          MODEL: ${{ steps.meta.outputs.model }}
+          REASONING: ${{ steps.meta.outputs.reasoning }}
+        run: |
+          python3 scripts/ci/aggregate-benchmark.py \
+            --lab "$LAB" \
+            --model "$MODEL" \
+            --reasoning "$REASONING" \
+            --artifacts ci-artifacts \
+            --logs ci-logs \
+            --output ci-report
+          cat ci-report/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload benchmark report
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-report-run-${{ steps.source.outputs.run_id }}
+          path: ci-report
+          retention-days: 30
