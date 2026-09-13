@@ -18,24 +18,14 @@
     "status"
   ],
   "properties": {
-    "schema_version": {
-      "const": "1"
-    },
-    "id": {
-      "type": "string",
-      "minLength": 1
-    },
+    "schema_version": { "const": "1" },
+    "id": { "type": "string", "minLength": 1 },
     "kind": {
       "type": "string",
       "enum": ["DETERMINISTIC", "DECLARED", "OBSERVED", "DERIVED", "PREDICTED"]
     },
-    "subject": {
-      "$ref": "#/$defs/entity_ref"
-    },
-    "predicate": {
-      "type": "string",
-      "minLength": 1
-    },
+    "subject": { "$ref": "#/$defs/entity_ref" },
+    "predicate": { "type": "string", "minLength": 1 },
     "object": {
       "oneOf": [
         { "$ref": "#/$defs/entity_ref" },
@@ -73,19 +63,17 @@
         "to": { "type": ["string", "null"], "format": "date-time" }
       }
     },
-    "recorded_at": {
-      "type": "string",
-      "format": "date-time"
-    },
+    "recorded_at": { "type": "string", "format": "date-time" },
     "evidence_refs": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true
     },
-    "confidence": {
-      "type": ["number", "null"],
-      "minimum": 0,
-      "maximum": 1
+    "confidence_record": {
+      "oneOf": [
+        { "$ref": "confidence.schema.json" },
+        { "type": "null" }
+      ]
     },
     "status": {
       "type": "string",
@@ -96,9 +84,7 @@
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true
     },
-    "metadata": {
-      "type": "object"
-    }
+    "metadata": { "type": "object" }
   },
   "$defs": {
     "entity_ref": {
