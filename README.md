@@ -78,6 +78,14 @@ The recorded run shows that optional availability alone produced `0/3` Rubydex-u
 
 See [`labs/08-autonomous-semantic-escalation/README.md`](labs/08-autonomous-semantic-escalation/README.md) and [`benchmarks/results/2026-09-13-lab-08-autonomous-semantic-escalation.md`](benchmarks/results/2026-09-13-lab-08-autonomous-semantic-escalation.md).
 
+### Lab 09 - Deterministic evidence routing
+
+Use the Lab 07 task-shape crossover as an oracle router: declaration lookup goes to source navigation; descendants, references, neighborhood, and impact tasks go semantic-first.
+
+Across 45 fresh samples, the routed condition reached `15/15` exact and `15/15` route adherence versus `10/15` exact for optional tooling and `13/15` for the prose escalation policy. Its median run used 45% fewer total tokens and cost about 49% less than optional tooling.
+
+See [`labs/09-deterministic-evidence-routing/README.md`](labs/09-deterministic-evidence-routing/README.md) and [`benchmarks/results/2026-09-13-lab-09-deterministic-evidence-routing.md`](benchmarks/results/2026-09-13-lab-09-deterministic-evidence-routing.md).
+
 ## Primary benchmark path: GitHub Actions
 
 Publishable Labs 04/05 runs use the `Rubydex benchmark` workflow. Later labs use dedicated workflows so each experiment can preserve its own conditions and scoring contract.
@@ -105,6 +113,14 @@ For Lab 08, the default run is:
 3 x F - optional Rubydex + minimal semantic-escalation policy
 ```
 
+For Lab 09, each of five task shapes runs as:
+
+```text
+3 x E - optional Rubydex, agent decides
+3 x F - prose escalation policy
+3 x G - deterministic task-shape route
+```
+
 The jobs run independently and do not share a Rubydex index, Codex home, filesystem page cache, or local background processes.
 
 The workflows use the official `openai/codex-action@v1`, an `OPENAI_API_KEY` GitHub Actions secret, `drop-sudo`, and a read-only Codex permission profile.
@@ -113,7 +129,7 @@ Setup and usage for Labs 04/05:
 
 [`benchmarks/GITHUB_ACTIONS.md`](benchmarks/GITHUB_ACTIONS.md)
 
-Manual runs are available from GitHub Actions, including the base benchmark, X-Ray benchmark, task-shape benchmark, and autonomous-escalation benchmark workflows.
+Manual runs are available from GitHub Actions, including the base benchmark, X-Ray benchmark, task-shape benchmark, autonomous-escalation benchmark, and deterministic-routing benchmark workflows.
 
 The Labs 04/05 benchmark can also be triggered by changing:
 
