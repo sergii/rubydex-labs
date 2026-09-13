@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/decision.schema.json",
+  "title": "Engineering decision",
+  "description": "A durable record of a selected course of action under a particular evidence state.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "subject_refs",
+    "options",
+    "chosen_option_id",
+    "decider",
+    "recorded_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "id": { "type": "string", "minLength": 1 },
+    "subject_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "options": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "description"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "benefits": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "downsides": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "risk_refs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "chosen_option_id": { "type": "string", "minLength": 1 },
+    "rationale": { "type": ["string", "null"] },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "assertion_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "finding_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "risk_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "confidence_record": { "$ref": "confidence.schema.json" },
+    "decider": { "type": "string", "minLength": 1 },
+    "decision_kind": {
+      "type": ["string", "null"],
+      "enum": ["HUMAN", "POLICY", "AUTOMATED", "HYBRID", null]
+    },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "supersedes": { "type": ["string", "null"] },
+    "metadata": { "type": "object" }
+  }
+}
