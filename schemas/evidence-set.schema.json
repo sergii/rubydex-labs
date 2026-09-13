@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/evidence-set.schema.json",
+  "title": "EvidenceSet",
+  "description": "A machine-preserved evidence result whose membership, count, scope, and provenance are authoritative.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_class",
+    "query",
+    "target",
+    "complete",
+    "count",
+    "items",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "evidence_class": {
+      "type": "string",
+      "enum": [
+        "SOURCE_LOCAL",
+        "SEMANTIC_RELATIONSHIP_SET",
+        "RUNTIME_BEHAVIOR",
+        "ARCHITECTURE_KNOWLEDGE"
+      ]
+    },
+    "query": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "include": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "exclude": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "filters": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "complete": {
+      "type": "boolean",
+      "description": "True only when pagination/truncation has been exhausted or ruled out by the backend."
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable identity for this item within the evidence set."
+          },
+          "relation": {
+            "type": ["string", "null"]
+          },
+          "symbol": {
+            "type": ["string", "null"]
+          },
+          "path": {
+            "type": ["string", "null"]
+          },
+          "line": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "value": {},
+          "metadata": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backend"],
+      "properties": {
+        "backend": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repository": {
+          "type": ["string", "null"]
+        },
+        "revision": {
+          "type": ["string", "null"]
+        },
+        "query_id": {
+          "type": ["string", "null"]
+        },
+        "observed_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/evidence-plan.schema.json",
+  "title": "EvidencePlan",
+  "description": "A small DAG describing which evidence backends should be consulted for an engineering request.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "request", "steps"],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "request": {
+      "type": "string",
+      "minLength": 1
+    },
+    "strategy": {
+      "type": "string",
+      "enum": ["parallel_when_possible", "sequential"],
+      "default": "parallel_when_possible"
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "evidence_class",
+          "backend",
+          "requirement",
+          "purpose",
+          "depends_on"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+          },
+          "evidence_class": {
+            "type": "string",
+            "enum": [
+              "SOURCE_LOCAL",
+              "SEMANTIC_RELATIONSHIP_SET",
+              "RUNTIME_BEHAVIOR",
+              "ARCHITECTURE_KNOWLEDGE"
+            ]
+          },
+          "backend": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requirement": {
+            "type": "string",
+            "enum": ["required", "optional"]
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "query_hint": {
+            "type": ["string", "null"]
+          },
+          "freshness": {
+            "type": ["string", "null"],
+            "description": "Optional human-readable freshness requirement, for example 'current revision' or 'last 24h'."
+          }
+        }
+      }
+    }
+  }
+}

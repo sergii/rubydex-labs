@@ -87,3 +87,74 @@ A classifier mistake that routes an executable source/semantic task to runtime/a
 A small explicit classifier should recover most or all of the Lab 09 oracle routing decisions at a tiny fraction of the downstream cost. If it does, evidence selection can become a deterministic product layer instead of an implicit prompt habit.
 
 The key metric is not "Rubydex usage." It is **correct evidence-path selection at the lowest reliable cost**.
+
+## Recorded result
+
+The final recorded run used 12 frozen natural-language requests, three independent H classifications per request, and the oracle condition O as an upper-bound control.
+
+| Metric | H — natural-language classifier | O — oracle |
+| --- | ---: | ---: |
+| Classification correct | **36/36** | 36/36 |
+| Route correct | **36/36** | 36/36 |
+| Executed downstream tasks | 24 | 24 |
+| Downstream exact | **23/24** | **24/24** |
+| Observed backend route | **24/24** | **24/24** |
+
+Classifier medians were roughly 1.4–1.7 seconds and about 500 tokens per request across all four evidence classes. The classifier cost was negligible relative to the downstream agent.
+
+The full recorded report is in [`../../benchmarks/results/2026-09-13-lab-10-natural-language-evidence-routing.md`](../../benchmarks/results/2026-09-13-lab-10-natural-language-evidence-routing.md).
+
+## Interpretation
+
+The frozen corpus supports a narrow but useful claim:
+
+> The four-way evidence taxonomy is learnable from ordinary engineering language, and an explicit low-cost classifier can reproduce the oracle evidence route on this benchmark.
+
+This does **not** mean evidence routing is universally solved. The 12 unique requests are intentionally well separated and repeated three times.
+
+The result strengthens the architecture introduced by Labs 08–09: evidence selection should be an explicit product layer rather than either `semantic-first everywhere` or unconstrained model tool choice.
+
+## The completeness lesson
+
+The single H downstream miss is especially important.
+
+For `semantic-02-H-r3`, routing was correct and Rubydex returned the complete direct-reference evidence, including the production `DiscourseSolved::Categories::Types::Support` reference. The model then omitted that item while converting the tool output into its final answer.
+
+So the failure occurred **after** correct evidence acquisition.
+
+That gives us a new invariant:
+
+```text
+Models may interpret evidence.
+Models must not reconstruct authoritative complete sets
+when a deterministic backend can preserve them.
+```
+
+Queries containing semantics like `all`, `every`, `complete set`, or otherwise completeness-sensitive membership should flow through a machine-owned `EvidenceSet`: membership, count, filtering, scope, and provenance are preserved deterministically, while the model explains consequences on top.
+
+See [`../../docs/evidence-architecture.md`](../../docs/evidence-architecture.md) and [`../../schemas/evidence-set.schema.json`](../../schemas/evidence-set.schema.json).
+
+## From EvidenceRoute to EvidencePlan
+
+Lab 10 intentionally chooses exactly one evidence class. Real engineering questions often need several.
+
+For example, "Is this checkout change safe in production?" may require:
+
+```text
+SEMANTIC_RELATIONSHIP_SET   required
+ARCHITECTURE_KNOWLEDGE      required
+RUNTIME_BEHAVIOR            required
+SOURCE_LOCAL                optional
+```
+
+The next architectural abstraction is therefore an `EvidencePlan`: a small DAG describing which evidence backends are required, which are optional, and what depends on what.
+
+The draft contract lives at [`../../schemas/evidence-plan.schema.json`](../../schemas/evidence-plan.schema.json).
+
+## Limitations
+
+- The corpus has 12 unique requests; 36/36 classification is a benchmark result, not a universal production accuracy claim.
+- Runtime and architecture routes are classification-only in this lab because their backends are not wired into the repository yet.
+- Source and semantic tasks reuse the frozen Lab 07 ground truth to isolate routing quality.
+- H and O downstream differences can still contain normal model variance once both routes reach the same backend.
+- The current classifier is single-label; multi-backend evidence planning remains future work.

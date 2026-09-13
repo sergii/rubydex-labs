@@ -15,8 +15,11 @@ Rubydex turns a Ruby workspace into a queryable semantic graph. These labs test 
 5. **Consequence X-Ray** - semantic code evidence and explicit architecture knowledge can be measured separately for their contribution to impact, risk, verification, and policy reasoning.
 6. **Task-shape boundary** - semantic-first navigation should pay mainly for repository-wide relationship-set tasks, not every lookup.
 7. **Evidence routing** - the system should learn when to escalate from ordinary source navigation to deterministic semantic evidence instead of loading semantic context everywhere or leaving tool choice entirely to model whim.
+8. **Evidence planning** - the long-term problem is not "use Rubydex or not" but selecting the cheapest reliable source, semantic, runtime, and architecture evidence path for each engineering question.
 
 This repository is not a Rubydex tutorial and is not intended to prove that Rubydex wins every task. Tiny or text-local tasks may show little or no benefit. We want to find the boundary where semantic analysis becomes materially useful and the cheapest reliable way to select it.
+
+The architecture emerging from the experiments is documented in [`docs/evidence-architecture.md`](docs/evidence-architecture.md).
 
 ## Labs
 
@@ -86,6 +89,45 @@ Across 45 fresh samples, the routed condition reached `15/15` exact and `15/15` 
 
 See [`labs/09-deterministic-evidence-routing/README.md`](labs/09-deterministic-evidence-routing/README.md) and [`benchmarks/results/2026-09-13-lab-09-deterministic-evidence-routing.md`](benchmarks/results/2026-09-13-lab-09-deterministic-evidence-routing.md).
 
+### Lab 10 - Natural-language evidence routing
+
+Remove the hidden task-shape label and classify ordinary engineering requests into four primary evidence classes before the downstream agent starts: local source, semantic relationship set, runtime behavior, or architecture knowledge.
+
+On the frozen corpus, the natural-language classifier matched the oracle on `36/36` classifications and `36/36` routes. Executed source/semantic tasks reached `23/24` exact versus `24/24` for the oracle. The single miss occurred after Rubydex had already returned the complete correct evidence, motivating machine-owned `EvidenceSet` results for completeness-sensitive queries.
+
+See [`labs/10-natural-language-evidence-routing/README.md`](labs/10-natural-language-evidence-routing/README.md) and [`benchmarks/results/2026-09-13-lab-10-natural-language-evidence-routing.md`](benchmarks/results/2026-09-13-lab-10-natural-language-evidence-routing.md).
+
+## Emerging evidence architecture
+
+The experiments now point to a broader architecture than semantic navigation alone:
+
+```text
+engineering request
+        |
+        v
+ evidence classifier / planner
+        |
+        +--> source evidence
+        +--> semantic evidence (Rubydex)
+        +--> runtime evidence
+        +--> architecture / policy evidence
+        |
+        v
+ machine-preserved evidence
+        |
+        v
+ model reasoning / consequence layer
+```
+
+Two draft contracts make that boundary explicit:
+
+- [`schemas/evidence-set.schema.json`](schemas/evidence-set.schema.json) — authoritative membership, count, scope, completeness, and provenance for machine-owned evidence sets;
+- [`schemas/evidence-plan.schema.json`](schemas/evidence-plan.schema.json) — a multi-backend evidence DAG for real requests that need more than one evidence class.
+
+The key invariant is:
+
+> Models may interpret evidence. Models must not reconstruct authoritative complete sets when a deterministic backend can preserve them.
+
 ## Primary benchmark path: GitHub Actions
 
 Publishable Labs 04/05 runs use the `Rubydex benchmark` workflow. Later labs use dedicated workflows so each experiment can preserve its own conditions and scoring contract.
@@ -121,6 +163,15 @@ For Lab 09, each of five task shapes runs as:
 3 x G - deterministic task-shape route
 ```
 
+For Lab 10, each frozen natural-language request runs as:
+
+```text
+3 x H - low-cost classifier selects the evidence class
+3 x O - hidden oracle class selects the evidence route
+```
+
+Only source and semantic routes execute a downstream agent in Lab 10; runtime and architecture requests remain classification-only until those evidence backends are wired in.
+
 The jobs run independently and do not share a Rubydex index, Codex home, filesystem page cache, or local background processes.
 
 The workflows use the official `openai/codex-action@v1`, an `OPENAI_API_KEY` GitHub Actions secret, `drop-sudo`, and a read-only Codex permission profile.
@@ -129,7 +180,7 @@ Setup and usage for Labs 04/05:
 
 [`benchmarks/GITHUB_ACTIONS.md`](benchmarks/GITHUB_ACTIONS.md)
 
-Manual runs are available from GitHub Actions, including the base benchmark, X-Ray benchmark, task-shape benchmark, autonomous-escalation benchmark, and deterministic-routing benchmark workflows.
+Manual runs are available from GitHub Actions, including the base benchmark, X-Ray benchmark, task-shape benchmark, autonomous-escalation benchmark, deterministic-routing benchmark, and natural-language-routing benchmark workflows.
 
 The Labs 04/05 benchmark can also be triggered by changing:
 
@@ -164,8 +215,10 @@ The aggregate jobs write median metrics to the GitHub Actions Step Summary and u
 ├── .github/workflows/                    # Independent benchmark workflows
 ├── app/                                  # Shared synthetic Rails fixture
 ├── config/                               # Minimal Rails application
+├── docs/                                 # Cross-lab architecture conclusions
 ├── labs/                                 # Lab protocols, prompts, ground truth
 ├── rubydex_linter/rules/                 # Custom Rubydex structural rules
+├── schemas/                              # Draft machine-readable evidence contracts
 ├── scripts/                              # Local and CI runner/scoring helpers
 ├── test/structural/                      # Runtime control checks
 ├── benchmarks/
@@ -188,6 +241,8 @@ Use multiple independent samples for claims about cost or latency. Prefer median
 Treat external repository source as untrusted input. Never place API keys in source files, prompts, benchmark request files, issues, or logs.
 
 Do not attribute a correctness difference to a tool merely because that tool was configured. Tool-effect claims require observed tool calls and consumed evidence.
+
+For completeness-sensitive tasks, distinguish evidence acquisition correctness from model rendering correctness. If a deterministic backend can own set membership, do not score a model-reconstructed set as the authoritative source of truth.
 
 ## Local setup and debugging
 
