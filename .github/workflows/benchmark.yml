@@ -40,7 +40,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 concurrency:
   group: rubydex-benchmark-${{ github.ref }}
@@ -54,7 +53,6 @@ jobs:
       lab: ${{ steps.resolve.outputs.lab }}
       model: ${{ steps.resolve.outputs.model }}
       reasoning: ${{ steps.resolve.outputs.reasoning }}
-      repetitions: ${{ steps.resolve.outputs.repetitions }}
       repeats_json: ${{ steps.resolve.outputs.repeats_json }}
 
     steps:
@@ -100,7 +98,6 @@ jobs:
           print(f"lab={cfg['lab']}")
           print(f"model={cfg['model']}")
           print(f"reasoning={cfg['reasoning']}")
-          print(f"repetitions={repetitions}")
           print("repeats_json=[1]" if repetitions == 1 else "repeats_json=[1,2,3]")
           PY
 
@@ -217,7 +214,6 @@ jobs:
           echo "codex_home=$codex_home" >> "$GITHUB_OUTPUT"
 
       - name: Run Codex benchmark sample
-        id: codex
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -231,8 +227,6 @@ jobs:
           safety-strategy: drop-sudo
           codex-args: '["--json","--ephemeral"]'
 
-      # Codex runs read-only and drop-sudo. This post-step only packages files
-      # already written by the trusted action/runner harness.
       - name: Upload sample artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -241,55 +235,3 @@ jobs:
           path: ${{ steps.prepare.outputs.output_dir }}
           if-no-files-found: warn
           retention-days: 14
-
-  aggregate:
-    name: aggregate
-    if: ${{ always() }}
-    needs: [config, benchmark]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout rubydex-labs
-        uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-
-      - name: Download sample artifacts
-        uses: actions/download-artifact@v5
-        with:
-          pattern: sample-*
-          path: ci-artifacts
-
-      - name: Download completed sample job logs
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.run_id }}
-          REPOSITORY: ${{ github.repository }}
-        run: |
-          python3 scripts/ci/fetch-benchmark-job-logs.py \
-            --repository "$REPOSITORY" \
-            --run-id "$RUN_ID" \
-            --output ci-logs
-
-      - name: Aggregate benchmark
-        env:
-          LAB: ${{ needs.config.outputs.lab }}
-          MODEL: ${{ needs.config.outputs.model }}
-          REASONING: ${{ needs.config.outputs.reasoning }}
-        run: |
-          python3 scripts/ci/aggregate-benchmark.py \
-            --lab "$LAB" \
-            --model "$MODEL" \
-            --reasoning "$REASONING" \
-            --artifacts ci-artifacts \
-            --logs ci-logs \
-            --output ci-report
-          cat ci-report/report.md >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload aggregate report
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-report
-          path: ci-report
-          retention-days: 30
