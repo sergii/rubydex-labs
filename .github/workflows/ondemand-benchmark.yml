@@ -1,0 +1,198 @@
+name: Rubydex on-demand benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: OpenAI model
+        required: true
+        type: string
+        default: gpt-5.6-luna
+      reasoning:
+        description: Reasoning effort
+        required: true
+        type: choice
+        default: medium
+        options: [low, medium, high]
+      repetitions:
+        description: Samples per condition
+        required: true
+        type: choice
+        default: "3"
+        options: ["1", "3"]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  config:
+    name: resolve-config
+    runs-on: ubuntu-latest
+    outputs:
+      model: ${{ steps.resolve.outputs.model }}
+      reasoning: ${{ steps.resolve.outputs.reasoning }}
+      repeats_json: ${{ steps.resolve.outputs.repeats_json }}
+    steps:
+      - id: resolve
+        env:
+          MODEL: ${{ inputs.model }}
+          REASONING: ${{ inputs.reasoning }}
+          REPETITIONS: ${{ inputs.repetitions }}
+        run: |
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+          echo "reasoning=$REASONING" >> "$GITHUB_OUTPUT"
+          if [ "$REPETITIONS" = "1" ]; then
+            echo 'repeats_json=[1]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'repeats_json=[1,2,3]' >> "$GITHUB_OUTPUT"
+          fi
+
+  benchmark:
+    name: sample-${{ matrix.condition }}-r${{ matrix.repeat }}
+    needs: config
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        condition: [D, E]
+        repeat: ${{ fromJSON(needs.config.outputs.repeats_json) }}
+
+    steps:
+      - name: Checkout rubydex-labs
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4.8"
+          bundler-cache: true
+
+      - name: Validate OpenAI secret
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          test -n "$OPENAI_API_KEY" || (echo "OPENAI_API_KEY missing" >&2; exit 1)
+
+      - name: Prepare benchmark sample
+        id: prepare
+        env:
+          CONDITION: ${{ matrix.condition }}
+          REPEAT: ${{ matrix.repeat }}
+          MODEL: ${{ needs.config.outputs.model }}
+          REASONING: ${{ needs.config.outputs.reasoning }}
+        run: |
+          set -euo pipefail
+          output_dir="$RUNNER_TEMP/benchmark-output"
+          codex_home="$RUNNER_TEMP/codex-home"
+          fixture_dir="$RUNNER_TEMP/ondemand-workspace"
+          prompt_file=".ondemand-benchmark-prompt.md"
+          mkdir -p "$output_dir" "$codex_home" "$fixture_dir"
+
+          cp -R labs/07-rubydex-on-demand/fixture/. "$fixture_dir/"
+          mkdir -p "$fixture_dir/.knowledge" "$fixture_dir/.skills/semantic-impact"
+          cp labs/07-rubydex-on-demand/knowledge/architecture.md "$fixture_dir/.knowledge/architecture.md"
+          cp labs/07-rubydex-on-demand/skills/semantic-impact/SKILL.md "$fixture_dir/.skills/semantic-impact/SKILL.md"
+          cp labs/07-rubydex-on-demand/task.md "$prompt_file"
+
+          rm -rf labs/07-rubydex-on-demand
+          rm -rf .git
+
+          cat > "$codex_home/config.toml" <<EOF
+          approval_policy = "never"
+          EOF
+
+          if [ "$CONDITION" = "E" ]; then
+            cat >> "$codex_home/config.toml" <<EOF
+
+          [mcp_servers.rubydex]
+          command = "env"
+          args = ["BUNDLE_GEMFILE=${GITHUB_WORKSPACE}/Gemfile", "bundle", "exec", "rdx", "mcp"]
+          cwd = "${fixture_dir}"
+          enabled = true
+          required = false
+          default_tools_approval_mode = "approve"
+          EOF
+          fi
+
+          python3 - "$output_dir/meta.json" <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          Path(sys.argv[1]).write_text(json.dumps({
+            "lab": "07",
+            "condition": os.environ["CONDITION"],
+            "repeat": int(os.environ["REPEAT"]),
+            "model": os.environ["MODEL"],
+            "reasoning": os.environ["REASONING"]
+          }, indent=2) + "\n")
+          PY
+
+          echo "prompt_file=$prompt_file" >> "$GITHUB_OUTPUT"
+          echo "output_dir=$output_dir" >> "$GITHUB_OUTPUT"
+          echo "codex_home=$codex_home" >> "$GITHUB_OUTPUT"
+          echo "fixture_dir=$fixture_dir" >> "$GITHUB_OUTPUT"
+
+      - name: Run Codex benchmark sample
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ steps.prepare.outputs.prompt_file }}
+          output-file: ${{ steps.prepare.outputs.output_dir }}/final.txt
+          working-directory: ${{ steps.prepare.outputs.fixture_dir }}
+          codex-home: ${{ steps.prepare.outputs.codex_home }}
+          model: ${{ needs.config.outputs.model }}
+          effort: ${{ needs.config.outputs.reasoning }}
+          permission-profile: ":read-only"
+          safety-strategy: drop-sudo
+          allow-bots: true
+          codex-args: '["--json","--ephemeral"]'
+
+      - name: Upload sample artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ondemand-sample-${{ matrix.condition }}-r${{ matrix.repeat }}
+          path: ${{ steps.prepare.outputs.output_dir }}
+          retention-days: 14
+
+  aggregate:
+    name: aggregate
+    if: ${{ always() }}
+    needs: [config, benchmark]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: ondemand-sample-*
+          path: ci-artifacts
+      - name: Normalize artifact directories
+        run: |
+          for path in ci-artifacts/ondemand-sample-*; do
+            [ -d "$path" ] || continue
+            base="$(basename "$path")"
+            mv "$path" "ci-artifacts/${base#ondemand-}"
+          done
+      - name: Download sample logs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 scripts/ci/fetch-benchmark-job-logs.py --repository "$REPOSITORY" --run-id "$RUN_ID" --output ci-logs
+      - name: Aggregate benchmark
+        env:
+          MODEL: ${{ needs.config.outputs.model }}
+        run: |
+          python3 scripts/ci/aggregate-ondemand-benchmark.py --model "$MODEL" --artifacts ci-artifacts --logs ci-logs --output ci-report
+          cat ci-report/report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ondemand-benchmark-report
+          path: ci-report
+          retention-days: 30
