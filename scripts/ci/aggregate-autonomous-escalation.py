@@ -166,12 +166,15 @@ def main() -> int:
 
     for condition in CONDITIONS:
         group = [s for s in samples if s["meta"]["condition"] == condition]
+        rdx_counts = [int(s["metrics"].get("rubydex_tool_calls") or 0) for s in group]
         item = {
             "count": len(group),
             "exact_count": sum(1 for s in group if s["score"].get("exact")),
             "medians": {name: median([s["metrics"].get(name) for s in group]) for name in metric_names},
             "field_median_precision": {},
             "field_median_recall": {},
+            "rubydex_runs_count": sum(1 for count in rdx_counts if count > 0),
+            "rubydex_total_calls": sum(rdx_counts),
             "rubydex_tools": sorted({
                 tool for s in group for tool in s["metrics"].get("rubydex_tools", [])
             }),
@@ -211,8 +214,8 @@ def main() -> int:
         "",
         "## Correctness and navigation economics",
         "",
-        "| Condition | Exact | Desc recall | Ref recall | Plugin recall | Spec recall | Read-first | RDX calls | Shell cmds | Search cmds | Ruby files read* | Sec | Total tokens | Uncached | Cost |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| Condition | Exact | Desc recall | Ref recall | Plugin recall | Spec recall | Read-first | RDX runs | RDX total calls | Shell cmds | Search cmds | Ruby-path evidence* | Sec | Total tokens | Uncached | Cost |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
 
     for condition in CONDITIONS:
@@ -224,15 +227,16 @@ def main() -> int:
             f"{fmt_pct(r['named_descendants'])} | {fmt_pct(r['direct_production_references'])} | "
             f"{fmt_pct(r['plugin_extensions'])} | {fmt_pct(r['direct_reference_spec_files'])} | "
             f"{fmt_num(s['median_read_first_coverage'])}/{s['read_first_coverage_total']} | "
-            f"{fmt_num(m['rubydex_tool_calls'])} | {fmt_num(m['command_count'])} | "
-            f"{fmt_num(m['search_command_count'])} | {fmt_num(m['ruby_files_read_approx'])} | "
-            f"{fmt_num(m['elapsed_seconds'], 1)} | {fmt_num(m['total_tokens'])} | "
-            f"{fmt_num(m['uncached_input_tokens'])} | {fmt_cost(m['estimated_cost_usd'])} |"
+            f"{s['rubydex_runs_count']}/{s['count']} | {s['rubydex_total_calls']} | "
+            f"{fmt_num(m['command_count'])} | {fmt_num(m['search_command_count'])} | "
+            f"{fmt_num(m['ruby_files_read_approx'])} | {fmt_num(m['elapsed_seconds'], 1)} | "
+            f"{fmt_num(m['total_tokens'])} | {fmt_num(m['uncached_input_tokens'])} | "
+            f"{fmt_cost(m['estimated_cost_usd'])} |"
         )
 
     lines += [
         "",
-        "\* `Ruby files read` is an approximation from completed shell commands that printed file contents; it intentionally excludes paths merely returned by search output.",
+        "* `Ruby-path evidence` is an operational approximation extracted from read-command text/output. It can over-count paths mentioned inside printed source, so use it directionally rather than as an exact file-open count.",
         "",
         "## Rubydex tools observed",
         "",
@@ -247,6 +251,7 @@ def main() -> int:
         "",
         "- D and E receive identical prompts; E differs only by optional Rubydex MCP availability.",
         "- F receives the same task plus a minimal semantic-escalation decision rule; Rubydex remains optional.",
+        "- `RDX runs` is the primary tool-selection metric. Median calls alone is misleading when only a minority of repeated runs use Rubydex.",
         "- The frozen structural ground truth is reused unchanged from Lab 07 and is not exposed to the agent workspace.",
         "- Tool-selection claims require actual Rubydex calls in logs. Correctness differences without tool calls must not be attributed to Rubydex.",
         "- Three samples expose stochastic behavior but are not a publication-grade statistical estimate.",
