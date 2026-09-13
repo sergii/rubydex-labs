@@ -40,10 +40,11 @@
       "type": "string",
       "enum": ["RESOLVED", "PROBABLE", "AMBIGUOUS", "CONFLICTED", "UNRESOLVED"]
     },
-    "confidence": {
-      "type": ["number", "null"],
-      "minimum": 0,
-      "maximum": 1
+    "confidence_record": {
+      "oneOf": [
+        { "$ref": "confidence.schema.json" },
+        { "type": "null" }
+      ]
     },
     "resolver": {
       "type": ["object", "null"],
@@ -84,19 +85,12 @@
         "to": { "type": ["string", "null"], "format": "date-time" }
       }
     },
-    "recorded_at": {
-      "type": "string",
-      "format": "date-time"
-    },
+    "recorded_at": { "type": "string", "format": "date-time" },
     "status": {
       "type": "string",
       "enum": ["ACTIVE", "SUPERSEDED", "RETRACTED", "CONFLICTED", "EXPIRED"]
     },
-    "supersedes": {
-      "type": ["string", "null"]
-    },
-    "metadata": {
-      "type": "object"
-    }
+    "supersedes": { "type": ["string", "null"] },
+    "metadata": { "type": "object" }
   }
 }
