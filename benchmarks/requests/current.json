@@ -2,6 +2,6 @@
   "lab": "05",
   "model": "gpt-5.6-luna",
   "reasoning": "medium",
-  "repetitions": 1,
-  "request_id": 5
+  "repetitions": 3,
+  "request_id": 6
 }
