@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/entity.schema.json",
+  "title": "World-model entity",
+  "description": "Storage-independent contract for a durable entity whose identity is stable across mutable names and sensor representations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "type",
+    "canonical_name",
+    "status",
+    "recorded_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Opaque stable identifier. Must not be derived from mutable names or paths."
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "Capability",
+        "BusinessFlow",
+        "System",
+        "Service",
+        "Component",
+        "CodeSymbol",
+        "Repository",
+        "DeploymentUnit",
+        "RuntimeResource",
+        "Database",
+        "Queue",
+        "ExternalDependency",
+        "Team",
+        "Owner",
+        "Policy",
+        "SLO",
+        "Change",
+        "Incident",
+        "Environment"
+      ]
+    },
+    "canonical_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["value", "kind"],
+        "properties": {
+          "value": { "type": "string", "minLength": 1 },
+          "kind": {
+            "type": "string",
+            "enum": ["DISPLAY", "SYMBOL", "PATH", "RUNTIME_NAME", "DEPLOYMENT_NAME", "EXTERNAL_ID", "OTHER"]
+          },
+          "source": { "type": ["string", "null"] },
+          "valid_from": { "type": ["string", "null"], "format": "date-time" },
+          "valid_to": { "type": ["string", "null"], "format": "date-time" }
+        }
+      }
+    },
+    "valid_time": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "type": ["string", "null"], "format": "date-time" },
+        "to": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ACTIVE", "INACTIVE", "MERGED", "SPLIT", "RETIRED", "UNKNOWN"]
+    },
+    "metadata": {
+      "type": "object"
+    }
+  }
+}
