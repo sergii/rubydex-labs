@@ -77,9 +77,9 @@ jobs:
     timeout-minutes: 15
     strategy:
       fail-fast: false
-      max-parallel: 3
+      max-parallel: 4
       matrix:
-        condition: [A, B, C]
+        condition: [A, B, C, D]
         repeat: ${{ fromJSON(needs.config.outputs.repeats_json) }}
 
     steps:
@@ -131,6 +131,9 @@ jobs:
             C)
               source_prompt="labs/06-xray-impact/task-knowledge.md"
               ;;
+            D)
+              source_prompt="labs/06-xray-impact/task-knowledge-only.md"
+              ;;
             *)
               echo "Unsupported condition: $CONDITION" >&2
               exit 2
@@ -140,7 +143,7 @@ jobs:
           cp -R labs/06-xray-impact/fixture/. "$fixture_dir/"
           cp "$source_prompt" "$prompt_file"
 
-          if [ "$CONDITION" = "C" ]; then
+          if [ "$CONDITION" = "C" ] || [ "$CONDITION" = "D" ]; then
             mkdir -p "$fixture_dir/.knowledge" "$fixture_dir/.skills/async-payment-boundary"
             cp labs/06-xray-impact/knowledge/architecture.md "$fixture_dir/.knowledge/architecture.md"
             cp labs/06-xray-impact/skills/async-payment-boundary/SKILL.md \
