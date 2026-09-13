@@ -1,0 +1,50 @@
+[
+  {
+    "id": "source-01",
+    "request": "Where is Categories::Types::Base declared, and on what line?"
+  },
+  {
+    "id": "semantic-01",
+    "request": "List every named production descendant of Categories::Types::Base across core and plugins."
+  },
+  {
+    "id": "runtime-01",
+    "request": "After the latest deploy, did checkout p95 latency increase in production, and which spans account for the change?"
+  },
+  {
+    "id": "architecture-01",
+    "request": "Is the payments subsystem allowed to call inventory synchronously, and which team owns that boundary?"
+  },
+  {
+    "id": "multi-01",
+    "request": "Before renaming Categories::Types::Base, tell me every production implementation that would be affected and which owning capability or team each belongs to."
+  },
+  {
+    "id": "multi-02",
+    "request": "A checkout request got four seconds slower. Tell me what actually happened in production and show the local code path that performed the slow external call."
+  },
+  {
+    "id": "multi-03",
+    "request": "We want to remove Payments::CaptureJob. Determine every code path that depends on that async boundary and whether bypassing it is allowed by architecture policy."
+  },
+  {
+    "id": "multi-04",
+    "request": "Did the latest payment incident involve retries after an ambiguous provider timeout, and does our declared policy require idempotency for that flow?"
+  },
+  {
+    "id": "multi-05",
+    "request": "Can we safely delete Categories::Types::Base? Account for every structural user and whether any of them is exercised in production."
+  },
+  {
+    "id": "multi-06",
+    "request": "Assess the production risk of changing checkout from queued capture to synchronous capture: what code relationships are affected, what policy boundary is crossed, and what has runtime latency and failure behavior looked like recently?"
+  },
+  {
+    "id": "multi-07",
+    "request": "Who owns every production consumer of Categories::Types::Base, and where is the base class itself implemented?"
+  },
+  {
+    "id": "multi-08",
+    "request": "Prepare a pre-deploy X-Ray for a change to payment capture: identify the exact implementation being changed, all structural dependents, applicable architecture policies and owners, and relevant recent runtime evidence."
+  }
+]

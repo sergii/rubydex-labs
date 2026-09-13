@@ -1,0 +1,216 @@
+name: Lab 11 evidence planner benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: OpenAI planner model
+        required: true
+        type: string
+        default: gpt-5.6-luna
+      reasoning:
+        description: Planner reasoning effort
+        required: true
+        type: choice
+        default: low
+        options: [low, medium]
+      repetitions:
+        description: Samples per frozen request
+        required: true
+        type: choice
+        default: "3"
+        options: ["1", "3"]
+      confirm_api_spend:
+        description: I explicitly want this run to spend real OpenAI API balance
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: rubydex-lab-11-evidence-planner
+  cancel-in-progress: false
+
+env:
+  RUN_WITH_REAL_OPENAI_API: ${{ vars.RUN_WITH_REAL_OPENAI_API || 'false' }}
+
+jobs:
+  validate:
+    name: validate-offline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Validate frozen JSON
+        run: |
+          python3 -m json.tool labs/11-evidence-planner/requests.json >/dev/null
+          python3 -m json.tool labs/11-evidence-planner/ground-truth.json >/dev/null
+          python3 -m json.tool schemas/evidence-plan.schema.json >/dev/null
+
+      - name: Validate corpus contract
+        run: python3 scripts/ci/score-evidence-plan.py --self-check
+
+  gate:
+    name: real-api-safety-gate
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report gate state
+        env:
+          CONFIRM_API_SPEND: ${{ inputs.confirm_api_spend }}
+        run: |
+          {
+            echo "## Lab 11 real API safety gate"
+            echo
+            echo "- repository variable RUN_WITH_REAL_OPENAI_API: \`$RUN_WITH_REAL_OPENAI_API\`"
+            echo "- manual confirm_api_spend: \`$CONFIRM_API_SPEND\`"
+            echo
+            if [ "$RUN_WITH_REAL_OPENAI_API" = "true" ] && [ "$CONFIRM_API_SPEND" = "true" ]; then
+              echo "**ENABLED:** planner matrix is allowed to call the real OpenAI API."
+            else
+              echo "**DISABLED:** planner matrix will be skipped; no OpenAI API call will be made."
+              echo
+              echo "To enable intentionally, set repository Actions variable \`RUN_WITH_REAL_OPENAI_API=true\` and dispatch again with \`confirm_api_spend=true\`."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  resolve-config:
+    name: resolve-config
+    needs: [validate, gate]
+    if: ${{ vars.RUN_WITH_REAL_OPENAI_API == 'true' && inputs.confirm_api_spend == true }}
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - id: matrix
+        name: Build sample matrix
+        env:
+          REPETITIONS: ${{ inputs.repetitions }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          from pathlib import Path
+
+          requests = json.loads(Path("labs/11-evidence-planner/requests.json").read_text())
+          repetitions = int(os.environ["REPETITIONS"])
+          include = [
+              {"task_id": item["id"], "repeat": repeat}
+              for item in requests
+              for repeat in range(1, repetitions + 1)
+          ]
+          print("matrix=" + json.dumps({"include": include}, separators=(",", ":")))
+          PY
+
+  plan:
+    name: sample-${{ matrix.task_id }}-r${{ matrix.repeat }}
+    needs: resolve-config
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.resolve-config.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Prepare sample
+        id: sample
+        env:
+          TASK_ID: ${{ matrix.task_id }}
+          REPEAT: ${{ matrix.repeat }}
+          MODEL: ${{ inputs.model }}
+          REASONING: ${{ inputs.reasoning }}
+        run: |
+          set -euo pipefail
+          output_dir="$RUNNER_TEMP/lab11-output"
+          request_file="$RUNNER_TEMP/lab11-request.txt"
+          mkdir -p "$output_dir"
+          python3 - "$TASK_ID" "$request_file" "$output_dir/meta.json" <<'PY'
+          import json, os, sys
+          from pathlib import Path
+
+          task_id, request_path, meta_path = sys.argv[1:]
+          requests = json.loads(Path("labs/11-evidence-planner/requests.json").read_text())
+          task = next(item for item in requests if item["id"] == task_id)
+          Path(request_path).write_text(task["request"] + "\n")
+          Path(meta_path).write_text(json.dumps({
+              "lab": "11",
+              "task_id": task_id,
+              "repeat": int(os.environ["REPEAT"]),
+              "model": os.environ["MODEL"],
+              "reasoning": os.environ["REASONING"],
+          }, indent=2) + "\n")
+          PY
+          echo "output_dir=$output_dir" >> "$GITHUB_OUTPUT"
+          echo "request_file=$request_file" >> "$GITHUB_OUTPUT"
+
+      - name: Run evidence planner with real API
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          RUN_WITH_REAL_OPENAI_API: ${{ vars.RUN_WITH_REAL_OPENAI_API }}
+        run: |
+          python3 scripts/ci/plan-evidence.py \
+            --request-file "${{ steps.sample.outputs.request_file }}" \
+            --model "${{ inputs.model }}" \
+            --reasoning "${{ inputs.reasoning }}" \
+            --output "${{ steps.sample.outputs.output_dir }}/planner-result.json"
+
+      - name: Score plan locally
+        run: |
+          python3 scripts/ci/score-evidence-plan.py \
+            --task-id "${{ matrix.task_id }}" \
+            --result "${{ steps.sample.outputs.output_dir }}/planner-result.json" \
+            --output "${{ steps.sample.outputs.output_dir }}/score.json"
+
+      - name: Upload sample artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-lab11-${{ matrix.task_id }}-r${{ matrix.repeat }}
+          path: ${{ steps.sample.outputs.output_dir }}
+          retention-days: 30
+
+  aggregate:
+    name: aggregate
+    needs: [resolve-config, plan]
+    if: ${{ always() && vars.RUN_WITH_REAL_OPENAI_API == 'true' && inputs.confirm_api_spend == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Download sample artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sample-lab11-*
+          path: ${{ runner.temp }}/lab11-artifacts
+
+      - name: Aggregate report
+        run: |
+          python3 scripts/ci/aggregate-evidence-planner.py \
+            --artifacts "$RUNNER_TEMP/lab11-artifacts" \
+            --output "$RUNNER_TEMP/lab11-report.md"
+          cat "$RUNNER_TEMP/lab11-report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload aggregate report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab11-evidence-planner-report
+          path: ${{ runner.temp }}/lab11-report.md
+          retention-days: 30

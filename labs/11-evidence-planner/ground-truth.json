@@ -1,0 +1,77 @@
+{
+  "schema_version": "1",
+  "tasks": [
+    {
+      "id": "source-01",
+      "required_classes": ["SOURCE_LOCAL"],
+      "optional_classes": [],
+      "strategy": "sequential"
+    },
+    {
+      "id": "semantic-01",
+      "required_classes": ["SEMANTIC_RELATIONSHIP_SET"],
+      "optional_classes": [],
+      "strategy": "sequential"
+    },
+    {
+      "id": "runtime-01",
+      "required_classes": ["RUNTIME_BEHAVIOR"],
+      "optional_classes": [],
+      "strategy": "sequential"
+    },
+    {
+      "id": "architecture-01",
+      "required_classes": ["ARCHITECTURE_KNOWLEDGE"],
+      "optional_classes": [],
+      "strategy": "sequential"
+    },
+    {
+      "id": "multi-01",
+      "required_classes": ["SEMANTIC_RELATIONSHIP_SET", "ARCHITECTURE_KNOWLEDGE"],
+      "optional_classes": [],
+      "strategy": "parallel_when_possible"
+    },
+    {
+      "id": "multi-02",
+      "required_classes": ["RUNTIME_BEHAVIOR", "SOURCE_LOCAL"],
+      "optional_classes": [],
+      "strategy": "parallel_when_possible"
+    },
+    {
+      "id": "multi-03",
+      "required_classes": ["SEMANTIC_RELATIONSHIP_SET", "ARCHITECTURE_KNOWLEDGE"],
+      "optional_classes": ["SOURCE_LOCAL"],
+      "strategy": "parallel_when_possible"
+    },
+    {
+      "id": "multi-04",
+      "required_classes": ["RUNTIME_BEHAVIOR", "ARCHITECTURE_KNOWLEDGE"],
+      "optional_classes": [],
+      "strategy": "parallel_when_possible"
+    },
+    {
+      "id": "multi-05",
+      "required_classes": ["SEMANTIC_RELATIONSHIP_SET", "RUNTIME_BEHAVIOR"],
+      "optional_classes": [],
+      "strategy": "parallel_when_possible"
+    },
+    {
+      "id": "multi-06",
+      "required_classes": ["SEMANTIC_RELATIONSHIP_SET", "ARCHITECTURE_KNOWLEDGE", "RUNTIME_BEHAVIOR"],
+      "optional_classes": ["SOURCE_LOCAL"],
+      "strategy": "parallel_when_possible"
+    },
+    {
+      "id": "multi-07",
+      "required_classes": ["SEMANTIC_RELATIONSHIP_SET", "ARCHITECTURE_KNOWLEDGE", "SOURCE_LOCAL"],
+      "optional_classes": [],
+      "strategy": "parallel_when_possible"
+    },
+    {
+      "id": "multi-08",
+      "required_classes": ["SOURCE_LOCAL", "SEMANTIC_RELATIONSHIP_SET", "RUNTIME_BEHAVIOR", "ARCHITECTURE_KNOWLEDGE"],
+      "optional_classes": [],
+      "strategy": "parallel_when_possible"
+    }
+  ]
+}
