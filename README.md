@@ -12,6 +12,7 @@ Rubydex turns a Ruby workspace into a queryable semantic graph. These labs test 
 2. **Agent navigation** - a coding agent can use semantic code intelligence to resolve declarations and references deterministically.
 3. **Scaling** - semantic navigation should become more valuable as same-named declarations, lexical ambiguity, and textual noise grow.
 4. **Real-codebase impact mapping** - semantic structure can reduce the cost of building a useful pre-change mental model in a mature Rails monolith.
+5. **Consequence X-Ray** - semantic code evidence and explicit architecture knowledge can be measured separately for their contribution to impact, risk, verification, and policy reasoning.
 
 This repository is not a Rubydex tutorial and is not intended to prove that Rubydex wins every task. Tiny or text-local tasks may show little or no benefit. We want to find the boundary where semantic analysis becomes materially useful.
 
@@ -51,32 +52,49 @@ Build a pre-change engineering impact map for `Categories::Types::Base`: named d
 
 See [`labs/05-real-impact-map/README.md`](labs/05-real-impact-map/README.md).
 
+### Lab 06 - X-Ray consequence analysis
+
+Analyze a proposed change that bypasses an asynchronous payment-capture boundary and compare source-only, Rubydex semantic-first, and Rubydex + architecture knowledge + skill conditions.
+
+The output is deliberately consequence-oriented: impacted flows/components, operational risks, verification scenarios, explicit policy violations, and a deploy recommendation.
+
+See [`labs/06-xray-impact/README.md`](labs/06-xray-impact/README.md).
+
 ## Primary benchmark path: GitHub Actions
 
-Publishable Lab 04/05 runs should use the public GitHub Actions workflow rather than a developer laptop.
+Publishable Labs 04/05 runs use the `Rubydex benchmark` workflow. Lab 06 uses the dedicated `Rubydex X-Ray benchmark` workflow.
 
-Each A/B sample gets its own fresh GitHub-hosted `ubuntu-latest` VM. The default run is:
+For Labs 04/05, each A/B sample gets its own fresh GitHub-hosted `ubuntu-latest` VM. The default run is:
 
 ```text
-3 × A — text/source navigation
-3 × B — Rubydex semantic-first
+3 x A - text/source navigation
+3 x B - Rubydex semantic-first
 ```
 
-The jobs run independently, with at most two samples in parallel. They do not share a Rubydex index, Codex home, filesystem page cache, or local background processes.
+For Lab 06, the default run is:
 
-The workflow uses the official `openai/codex-action@v1`, an `OPENAI_API_KEY` GitHub Actions secret, `drop-sudo`, and a read-only Codex permission profile.
+```text
+3 x A - source only
+3 x B - Rubydex semantic-first
+3 x C - Rubydex + architecture knowledge + skill
+```
 
-Setup and usage:
+The jobs run independently and do not share a Rubydex index, Codex home, filesystem page cache, or local background processes.
+
+The workflows use the official `openai/codex-action@v1`, an `OPENAI_API_KEY` GitHub Actions secret, `drop-sudo`, and a read-only Codex permission profile.
+
+Setup and usage for Labs 04/05:
 
 [`benchmarks/GITHUB_ACTIONS.md`](benchmarks/GITHUB_ACTIONS.md)
 
-A manual run is available from:
+Manual runs are available from:
 
 ```text
-GitHub → Actions → Rubydex benchmark → Run workflow
+GitHub -> Actions -> Rubydex benchmark -> Run workflow
+GitHub -> Actions -> Rubydex X-Ray benchmark -> Run workflow
 ```
 
-The benchmark can also be triggered by changing:
+The Labs 04/05 benchmark can also be triggered by changing:
 
 ```text
 benchmarks/requests/current.json
@@ -84,7 +102,7 @@ benchmarks/requests/current.json
 
 on `main`. This makes automated experiment iteration possible without a local terminal.
 
-## What the workflow records
+## What the workflows record
 
 Per sample:
 
@@ -99,23 +117,24 @@ Per sample:
 - total tokens;
 - estimated API cost when pricing is known to the aggregator.
 
-The aggregate job produces median A/B metrics and writes them to the GitHub Actions Step Summary plus a downloadable `benchmark-report` artifact.
+The aggregate jobs write median metrics to the GitHub Actions Step Summary and upload machine-readable and Markdown report artifacts.
 
 ## Repository layout
 
 ```text
 .
-├── .github/workflows/benchmark.yml # Ephemeral GitHub benchmark runner
-├── app/                            # Shared synthetic Rails fixture
-├── config/                         # Minimal Rails application
-├── labs/                           # Lab protocols, prompts, ground truth
-├── rubydex_linter/rules/           # Custom Rubydex structural rules
-├── scripts/                        # Local and CI runner/scoring helpers
-├── test/structural/                # Runtime control checks
+├── .github/workflows/benchmark.yml       # Labs 04/05 ephemeral benchmark runner
+├── .github/workflows/xray-benchmark.yml  # Lab 06 A/B/C X-Ray benchmark runner
+├── app/                                  # Shared synthetic Rails fixture
+├── config/                               # Minimal Rails application
+├── labs/                                 # Lab protocols, prompts, ground truth
+├── rubydex_linter/rules/                 # Custom Rubydex structural rules
+├── scripts/                              # Local and CI runner/scoring helpers
+├── test/structural/                      # Runtime control checks
 ├── benchmarks/
-│   ├── requests/current.json       # Commit-triggered benchmark request
-│   ├── results/                    # Recorded experiment results
-│   └── GITHUB_ACTIONS.md           # CI benchmark documentation
+│   ├── requests/current.json             # Commit-triggered benchmark request
+│   ├── results/                          # Recorded experiment results
+│   └── GITHUB_ACTIONS.md                 # Labs 04/05 CI benchmark documentation
 └── rubydex.toml
 ```
 
@@ -160,7 +179,7 @@ Start the Rubydex MCP server:
 bundle exec rdx mcp
 ```
 
-Local `bin/...` runners remain available for debugging harness changes, but fresh GitHub-hosted samples are the primary measurement path for Labs 04 and 05.
+Local `bin/...` runners remain available for debugging harness changes, but fresh GitHub-hosted samples are the primary measurement path for Labs 04, 05, and 06.
 
 ## References
 
