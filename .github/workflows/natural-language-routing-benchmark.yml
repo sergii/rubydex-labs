@@ -84,6 +84,7 @@ jobs:
   benchmark:
     name: sample-${{ matrix.task }}-${{ matrix.condition }}-r${{ matrix.repeat }}
     needs: config
+    if: ${{ vars.RUN_WITH_REAL_OPENAI_API == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -112,10 +113,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate OpenAI secret
+      - name: Validate real OpenAI API execution
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: test -n "$OPENAI_API_KEY" || (echo "OPENAI_API_KEY missing" >&2; exit 1)
+          RUN_WITH_REAL_OPENAI_API: ${{ vars.RUN_WITH_REAL_OPENAI_API || 'false' }}
+        run: bash scripts/ci/assert-real-openai-api-enabled.sh
 
       - name: Prepare classification sample
         id: prepare
@@ -318,7 +320,7 @@ jobs:
   aggregate:
     name: aggregate
     needs: [config, benchmark]
-    if: ${{ always() && needs.config.result == 'success' }}
+    if: ${{ always() && needs.config.result == 'success' && vars.RUN_WITH_REAL_OPENAI_API == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
