@@ -46,6 +46,24 @@ The primary question is no longer “does Rubydex win?” It is:
 
 > Does explicit evidence routing recover the cheapest reliable path across different task shapes?
 
+## Observed result
+
+The repeated `3 × 5 scenarios × 3 conditions = 45` sample run strongly favored the routed condition:
+
+| Condition | Exact | Route correct | Semantic runs | Median sec | Median tokens | Median uncached | Median cost |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| E | 10/15 | 3/15 | 0/15 | 26.2 | 123,954 | 29,521 | $0.0105 |
+| F | 13/15 | 7/15 | 4/15 | 20.2 | 115,379 | 25,393 | $0.0098 |
+| G | **15/15** | **15/15** | **12/15** | **13.5** | **68,570** | **15,596** | **$0.0054** |
+
+G deliberately used source-only navigation for all three declaration samples and semantic-first evidence for all twelve relationship-set samples. Compared with E, G was about 48% faster, used 45% fewer total tokens and 47% fewer uncached tokens, and cost about 49% less while improving exact correctness from `10/15` to `15/15`.
+
+Compared with F, G was about 33% faster, used 41% fewer total tokens and 39% fewer uncached tokens, and cost about 45% less while improving exact correctness from `13/15` to `15/15`.
+
+Full result: [`benchmarks/results/2026-09-13-lab-09-deterministic-evidence-routing.md`](../../benchmarks/results/2026-09-13-lab-09-deterministic-evidence-routing.md).
+
 ## Guardrail
 
-G is a routing upper bound. It must not be described as an autonomous classifier. If G wins, the next problem is to build and evaluate a classifier/router that infers task shape from a natural-language engineering request without access to benchmark labels.
+G is a routing upper bound. It must not be described as an autonomous classifier. The result demonstrates that **correct evidence routing is valuable**; it does not demonstrate that production task classification is solved.
+
+The next experiment should infer task shape from raw natural-language engineering requests without access to benchmark scenario labels.
