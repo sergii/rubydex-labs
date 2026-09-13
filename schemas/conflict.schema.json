@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/conflict.schema.json",
+  "title": "Conflict record",
+  "description": "First-class record of disagreement or reconciliation between evidence-backed assertions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "assertion_refs",
+    "conflict_class",
+    "recorded_at",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "id": { "type": "string", "minLength": 1 },
+    "assertion_refs": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "conflict_class": {
+      "type": "string",
+      "enum": [
+        "NON_CONFLICTING_DIFFERENCE",
+        "SCOPE_MISMATCH",
+        "TEMPORAL_MISMATCH",
+        "DECLARED_VS_OBSERVED_DRIFT",
+        "DETERMINISTIC_CONTRADICTION",
+        "OBSERVATION_CONTRADICTION",
+        "IDENTITY_CONFLICT",
+        "POLICY_CONFLICT",
+        "DERIVATION_CONFLICT",
+        "PREDICTION_MISS"
+      ]
+    },
+    "aligned_dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "identity": { "$ref": "#/$defs/alignment_state" },
+        "predicate": { "$ref": "#/$defs/alignment_state" },
+        "scope": { "$ref": "#/$defs/alignment_state" },
+        "revision": { "$ref": "#/$defs/alignment_state" },
+        "environment": { "$ref": "#/$defs/alignment_state" },
+        "valid_time": { "$ref": "#/$defs/alignment_state" },
+        "truth_source": { "$ref": "#/$defs/alignment_state" }
+      }
+    },
+    "outcome": {
+      "type": ["string", "null"],
+      "enum": [
+        "COMPATIBLE",
+        "SUPERSEDE_OLDER",
+        "PREFER_MORE_SPECIFIC_SCOPE",
+        "PREFER_FRESHER_OBSERVATION",
+        "RECOMPUTE_DERIVED",
+        "REQUIRE_IDENTITY_RESOLUTION",
+        "REQUIRE_MORE_EVIDENCE",
+        "MARK_CONFLICTED",
+        "CREATE_FINDING",
+        "HUMAN_REVIEW",
+        null
+      ]
+    },
+    "finding_ref": {
+      "type": ["string", "null"]
+    },
+    "resolution_evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "reason": {
+      "type": ["string", "null"]
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["OPEN", "EXPLAINED", "RESOLVED", "PRESERVED", "DISMISSED"]
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "alignment_state": {
+      "type": "string",
+      "enum": ["ALIGNED", "MISMATCHED", "UNKNOWN", "NOT_APPLICABLE"]
+    }
+  }
+}
