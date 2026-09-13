@@ -1,0 +1,33 @@
+name: Trigger Rubydex on-demand benchmark
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - benchmarks/requests/ondemand.json
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Validate and dispatch request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          request="benchmarks/requests/ondemand.json"
+          model="$(jq -r '.model // empty' "$request")"
+          reasoning="$(jq -r '.reasoning // empty' "$request")"
+          repetitions="$(jq -r '.repetitions // empty' "$request")"
+          test -n "$model"
+          case "$reasoning" in low|medium|high) ;; *) exit 2 ;; esac
+          case "$repetitions" in 1|3) ;; *) exit 2 ;; esac
+          gh workflow run ondemand-benchmark.yml --ref main -f model="$model" -f reasoning="$reasoning" -f repetitions="$repetitions"
