@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/verification.schema.json",
+  "title": "Engineering verification",
+  "description": "Structured evidence-acquisition request used to test a hypothesis before or after an action.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "question",
+    "status",
+    "recorded_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "id": { "type": "string", "minLength": 1 },
+    "question": { "type": "string", "minLength": 1 },
+    "hypothesis": { "type": ["string", "null"] },
+    "status": {
+      "type": "string",
+      "enum": ["PLANNED", "RUNNING", "PASSED", "FAILED", "INCONCLUSIVE", "CANCELLED"]
+    },
+    "evidence_class": {
+      "type": ["string", "null"],
+      "enum": ["SOURCE_LOCAL", "SEMANTIC_RELATIONSHIP_SET", "RUNTIME_BEHAVIOR", "ARCHITECTURE_KNOWLEDGE", null]
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "success_criteria": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "failure_criteria": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "finding_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "risk_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "decision_ref": { "type": ["string", "null"] },
+    "action_ref": { "type": ["string", "null"] },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "result_summary": { "type": ["string", "null"] },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "started_at": { "type": ["string", "null"], "format": "date-time" },
+    "completed_at": { "type": ["string", "null"], "format": "date-time" },
+    "metadata": { "type": "object" }
+  }
+}
