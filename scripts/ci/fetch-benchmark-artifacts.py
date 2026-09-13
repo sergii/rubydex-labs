@@ -53,7 +53,9 @@ def main() -> int:
     for artifact in samples:
         name = artifact["name"]
         download_url = artifact["archive_download_url"]
-        data = request(download_url, token, "application/octet-stream")
+        # GitHub's artifact archive endpoint expects the standard REST media type
+        # and responds with a redirect to the ZIP payload.
+        data = request(download_url, token)
         target = output / name
         target.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
