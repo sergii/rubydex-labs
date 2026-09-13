@@ -140,7 +140,6 @@ jobs:
           cp -R labs/06-xray-impact/fixture/. "$fixture_dir/"
           cp "$source_prompt" "$prompt_file"
 
-          # Only C gets company architecture knowledge and the targeted skill.
           if [ "$CONDITION" = "C" ]; then
             mkdir -p "$fixture_dir/.knowledge" "$fixture_dir/.skills/async-payment-boundary"
             cp labs/06-xray-impact/knowledge/architecture.md "$fixture_dir/.knowledge/architecture.md"
@@ -148,8 +147,6 @@ jobs:
               "$fixture_dir/.skills/async-payment-boundary/SKILL.md"
           fi
 
-          # Remove benchmark internals and Git history from the measured job.
-          # The agent sees only the selected prompt plus the sanitized temp workspace.
           rm -rf labs/06-xray-impact
           rm -rf .git
 
@@ -206,6 +203,7 @@ jobs:
           effort: ${{ needs.config.outputs.reasoning }}
           permission-profile: ":read-only"
           safety-strategy: drop-sudo
+          allow-bots: true
           codex-args: '["--json","--ephemeral"]'
 
       - name: Upload sample artifact
