@@ -168,6 +168,7 @@ jobs:
         id: classify
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          RUN_WITH_REAL_OPENAI_API: ${{ vars.RUN_WITH_REAL_OPENAI_API || 'false' }}
           CONDITION: ${{ matrix.condition }}
           CLASSIFIER_MODEL: ${{ needs.config.outputs.classifier_model }}
           EXPECTED_CLASS: ${{ steps.prepare.outputs.expected_class }}
