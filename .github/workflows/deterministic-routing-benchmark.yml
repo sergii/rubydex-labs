@@ -1,0 +1,228 @@
+name: Rubydex deterministic routing benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: OpenAI model
+        required: true
+        type: string
+        default: gpt-5.6-luna
+      reasoning:
+        description: Reasoning effort
+        required: true
+        type: choice
+        default: medium
+        options: [low, medium, high]
+      repetitions:
+        description: Samples per scenario/condition
+        required: true
+        type: choice
+        default: "3"
+        options: ["1", "3"]
+  push:
+    branches: [main]
+    paths:
+      - benchmarks/requests/deterministic-routing.json
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: rubydex-deterministic-routing-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  config:
+    name: resolve-config
+    runs-on: ubuntu-latest
+    outputs:
+      model: ${{ steps.resolve.outputs.model }}
+      reasoning: ${{ steps.resolve.outputs.reasoning }}
+      repeats_json: ${{ steps.resolve.outputs.repeats_json }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_MODEL: ${{ inputs.model }}
+          INPUT_REASONING: ${{ inputs.reasoning }}
+          INPUT_REPETITIONS: ${{ inputs.repetitions }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          from pathlib import Path
+          if os.environ["EVENT_NAME"] == "workflow_dispatch":
+              cfg = {"model": os.environ["INPUT_MODEL"], "reasoning": os.environ["INPUT_REASONING"], "repetitions": int(os.environ["INPUT_REPETITIONS"])}
+          else:
+              cfg = json.loads(Path("benchmarks/requests/deterministic-routing.json").read_text())
+          if cfg["reasoning"] not in {"low", "medium", "high"}: raise SystemExit("unsupported reasoning")
+          if int(cfg["repetitions"]) not in {1, 3}: raise SystemExit("repetitions must be 1 or 3")
+          if not str(cfg["model"]).strip(): raise SystemExit("model must not be empty")
+          print(f"model={cfg['model']}")
+          print(f"reasoning={cfg['reasoning']}")
+          print("repeats_json=[1]" if int(cfg["repetitions"]) == 1 else "repeats_json=[1,2,3]")
+          PY
+
+  benchmark:
+    name: sample-${{ matrix.scenario }}-${{ matrix.condition }}-r${{ matrix.repeat }}
+    needs: config
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        scenario: [declaration, descendants, references, neighborhood, impact]
+        condition: [E, F, G]
+        repeat: ${{ fromJSON(needs.config.outputs.repeats_json) }}
+    steps:
+      - name: Checkout rubydex-labs
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Checkout pinned Discourse
+        uses: actions/checkout@v5
+        with:
+          repository: discourse/discourse
+          ref: c89b1a0506a3ec0a249b7f23ac86763b358dc177
+          path: discourse
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4.8"
+          bundler-cache: true
+      - name: Validate OpenAI secret
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: test -n "$OPENAI_API_KEY" || (echo "OPENAI_API_KEY missing" >&2; exit 1)
+      - name: Prepare benchmark sample
+        id: prepare
+        env:
+          SCENARIO: ${{ matrix.scenario }}
+          CONDITION: ${{ matrix.condition }}
+          REPEAT: ${{ matrix.repeat }}
+          MODEL: ${{ needs.config.outputs.model }}
+          REASONING: ${{ needs.config.outputs.reasoning }}
+        run: |
+          set -euo pipefail
+          output_dir="$RUNNER_TEMP/benchmark-output"
+          codex_home="$RUNNER_TEMP/codex-home"
+          fixture_dir="$RUNNER_TEMP/discourse-workspace"
+          prompt_file="$RUNNER_TEMP/lab09-task.md"
+          mkdir -p "$output_dir" "$codex_home"
+          mv discourse "$fixture_dir"
+
+          expected_route="$(python3 scripts/ci/task-shape-router.py "$SCENARIO")"
+          if [ "$CONDITION" = "E" ]; then
+            condition_file="labs/08-autonomous-semantic-escalation/condition-neutral.md"
+          elif [ "$CONDITION" = "F" ]; then
+            condition_file="labs/08-autonomous-semantic-escalation/condition-escalation.md"
+          elif [ "$expected_route" = "semantic" ]; then
+            condition_file="labs/09-deterministic-evidence-routing/condition-routed-semantic.md"
+          else
+            condition_file="labs/09-deterministic-evidence-routing/condition-routed-source.md"
+          fi
+
+          cat labs/08-autonomous-semantic-escalation/shared-guidance.md "$condition_file" "labs/07-task-shape-boundary/scenarios/${SCENARIO}.md" > "$prompt_file"
+
+          cat > "$codex_home/config.toml" <<EOF
+          approval_policy = "never"
+          EOF
+
+          enable_rubydex=false
+          if [ "$CONDITION" = "E" ] || [ "$CONDITION" = "F" ]; then
+            enable_rubydex=true
+          elif [ "$CONDITION" = "G" ] && [ "$expected_route" = "semantic" ]; then
+            enable_rubydex=true
+          fi
+
+          if [ "$enable_rubydex" = true ]; then
+            cat >> "$codex_home/config.toml" <<EOF
+
+          [mcp_servers.rubydex]
+          command = "env"
+          args = ["BUNDLE_GEMFILE=${GITHUB_WORKSPACE}/Gemfile", "bundle", "exec", "rdx", "mcp"]
+          cwd = "${fixture_dir}"
+          enabled = true
+          required = false
+          default_tools_approval_mode = "approve"
+          EOF
+          fi
+
+          python3 - "$output_dir/meta.json" <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          Path(sys.argv[1]).write_text(json.dumps({
+              "lab": "09", "scenario": os.environ["SCENARIO"], "condition": os.environ["CONDITION"],
+              "repeat": int(os.environ["REPEAT"]), "model": os.environ["MODEL"], "reasoning": os.environ["REASONING"],
+              "repository": "discourse/discourse", "revision": "c89b1a0506a3ec0a249b7f23ac86763b358dc177",
+              "target": "Categories::Types::Base"
+          }, indent=2) + "\n")
+          PY
+          echo "prompt_file=$prompt_file" >> "$GITHUB_OUTPUT"
+          echo "output_dir=$output_dir" >> "$GITHUB_OUTPUT"
+          echo "codex_home=$codex_home" >> "$GITHUB_OUTPUT"
+          echo "fixture_dir=$fixture_dir" >> "$GITHUB_OUTPUT"
+      - name: Run Codex benchmark sample
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ steps.prepare.outputs.prompt_file }}
+          output-file: ${{ steps.prepare.outputs.output_dir }}/final.txt
+          working-directory: ${{ steps.prepare.outputs.fixture_dir }}
+          codex-home: ${{ steps.prepare.outputs.codex_home }}
+          model: ${{ needs.config.outputs.model }}
+          effort: ${{ needs.config.outputs.reasoning }}
+          permission-profile: ":read-only"
+          safety-strategy: drop-sudo
+          allow-bots: true
+          codex-args: '["--json","--ephemeral"]'
+      - name: Upload sample artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-${{ matrix.scenario }}-${{ matrix.condition }}-r${{ matrix.repeat }}
+          path: ${{ steps.prepare.outputs.output_dir }}
+          if-no-files-found: warn
+          retention-days: 14
+
+  aggregate:
+    name: aggregate
+    needs: [config, benchmark]
+    if: ${{ always() && needs.config.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: sample-*
+          path: ci-artifacts
+          merge-multiple: false
+      - name: Download sample logs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 scripts/ci/fetch-benchmark-job-logs.py --repository "$REPOSITORY" --run-id "$RUN_ID" --output ci-logs
+      - name: Aggregate benchmark
+        env:
+          MODEL: ${{ needs.config.outputs.model }}
+          REASONING: ${{ needs.config.outputs.reasoning }}
+        run: |
+          python3 scripts/ci/aggregate-deterministic-routing.py --model "$MODEL" --reasoning "$REASONING" --artifacts ci-artifacts --logs ci-logs --output ci-report
+          cat ci-report/report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deterministic-routing-report
+          path: ci-report
+          if-no-files-found: warn
+          retention-days: 30
