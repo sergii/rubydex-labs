@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/assertion.schema.json",
+  "title": "Evidence-backed assertion",
+  "description": "Research contract for a versioned claim backed by evidence. This is intentionally storage-engine agnostic.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "kind",
+    "subject",
+    "predicate",
+    "object",
+    "scope",
+    "evidence_refs",
+    "recorded_at",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["DETERMINISTIC", "DECLARED", "OBSERVED", "DERIVED", "PREDICTED"]
+    },
+    "subject": {
+      "$ref": "#/$defs/entity_ref"
+    },
+    "predicate": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object": {
+      "oneOf": [
+        { "$ref": "#/$defs/entity_ref" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value"],
+          "properties": {
+            "value": {},
+            "unit": { "type": ["string", "null"] }
+          }
+        }
+      ]
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "type": ["string", "null"] },
+        "revision": { "type": ["string", "null"] },
+        "environment": { "type": ["string", "null"] },
+        "service": { "type": ["string", "null"] },
+        "filters": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+    "valid_time": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "type": ["string", "null"], "format": "date-time" },
+        "to": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "confidence": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ACTIVE", "SUPERSEDED", "RETRACTED", "CONFLICTED", "EXPIRED"]
+    },
+    "derived_from": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "entity_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "name": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
