@@ -51,6 +51,7 @@ jobs:
   benchmark:
     name: sample-${{ matrix.condition }}-r${{ matrix.repeat }}
     needs: config
+    if: ${{ vars.RUN_WITH_REAL_OPENAI_API == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -72,11 +73,11 @@ jobs:
           ruby-version: "3.4.8"
           bundler-cache: true
 
-      - name: Validate OpenAI secret
+      - name: Validate real OpenAI API execution
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          test -n "$OPENAI_API_KEY" || (echo "OPENAI_API_KEY missing" >&2; exit 1)
+          RUN_WITH_REAL_OPENAI_API: ${{ vars.RUN_WITH_REAL_OPENAI_API || 'false' }}
+        run: bash scripts/ci/assert-real-openai-api-enabled.sh
 
       - name: Prepare benchmark sample
         id: prepare
@@ -161,7 +162,7 @@ jobs:
 
   aggregate:
     name: aggregate
-    if: ${{ always() }}
+    if: ${{ always() && vars.RUN_WITH_REAL_OPENAI_API == 'true' }}
     needs: [config, benchmark]
     runs-on: ubuntu-latest
     steps:
