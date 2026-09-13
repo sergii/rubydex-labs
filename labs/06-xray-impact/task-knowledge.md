@@ -1,6 +1,6 @@
 # Task: X-Ray a proposed checkout change
 
-Work only from the current fixture source plus the two explicitly supplied knowledge artifacts. Do not edit files, run Rails, run tests, install dependencies, inspect ground truth, or inspect unrelated parent benchmark files.
+Work only from the current fixture source plus the two explicitly supplied knowledge artifacts. Do not edit files, run Rails, run tests, install dependencies, inspect ground truth, or inspect unrelated filesystem locations.
 
 A developer proposes this change in `Orders::Checkout`:
 
@@ -11,11 +11,11 @@ A developer proposes this change in `Orders::Checkout`:
 
 First use Rubydex semantic tools to resolve and inspect the declarations/references around `Orders::Checkout`, `Payments::CaptureJob`, and `Payments::Capture`.
 
-Then load exactly these additional knowledge artifacts:
+Then load exactly these additional knowledge artifacts from the current workspace:
 
 ```text
-../knowledge/architecture.md
-../skills/async-payment-boundary/SKILL.md
+.knowledge/architecture.md
+.skills/async-payment-boundary/SKILL.md
 ```
 
 Use semantic/source evidence for what the code does and the supplied knowledge for company intent/policy. Do not treat general best practice as an explicit company policy unless the knowledge artifact gives it a policy ID.

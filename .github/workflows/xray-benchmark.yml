@@ -115,18 +115,21 @@ jobs:
 
           output_dir="$RUNNER_TEMP/benchmark-output"
           codex_home="$RUNNER_TEMP/codex-home"
-          fixture_dir="labs/06-xray-impact/fixture"
+          fixture_dir="$RUNNER_TEMP/xray-workspace"
+          prompt_file=".xray-benchmark-prompt.md"
           mkdir -p "$output_dir" "$codex_home"
+          rm -rf "$fixture_dir"
+          mkdir -p "$fixture_dir"
 
           case "$CONDITION" in
             A)
-              prompt_file="labs/06-xray-impact/task.md"
+              source_prompt="labs/06-xray-impact/task.md"
               ;;
             B)
-              prompt_file="labs/06-xray-impact/task-semantic-first.md"
+              source_prompt="labs/06-xray-impact/task-semantic-first.md"
               ;;
             C)
-              prompt_file="labs/06-xray-impact/task-knowledge.md"
+              source_prompt="labs/06-xray-impact/task-knowledge.md"
               ;;
             *)
               echo "Unsupported condition: $CONDITION" >&2
@@ -134,14 +137,21 @@ jobs:
               ;;
           esac
 
-          # Ground truth must never be available to the measured agent.
-          rm -f labs/06-xray-impact/ground-truth.json
+          cp -R labs/06-xray-impact/fixture/. "$fixture_dir/"
+          cp "$source_prompt" "$prompt_file"
 
-          # A/B intentionally do not receive company architecture knowledge or skills.
-          if [ "$CONDITION" != "C" ]; then
-            rm -rf labs/06-xray-impact/knowledge
-            rm -rf labs/06-xray-impact/skills
+          # Only C gets company architecture knowledge and the targeted skill.
+          if [ "$CONDITION" = "C" ]; then
+            mkdir -p "$fixture_dir/.knowledge" "$fixture_dir/.skills/async-payment-boundary"
+            cp labs/06-xray-impact/knowledge/architecture.md "$fixture_dir/.knowledge/architecture.md"
+            cp labs/06-xray-impact/skills/async-payment-boundary/SKILL.md \
+              "$fixture_dir/.skills/async-payment-boundary/SKILL.md"
           fi
+
+          # Remove benchmark internals and Git history from the measured job.
+          # The agent sees only the selected prompt plus the sanitized temp workspace.
+          rm -rf labs/06-xray-impact
+          rm -rf .git
 
           cat > "$codex_home/config.toml" <<EOF
           approval_policy = "never"
@@ -153,7 +163,7 @@ jobs:
           [mcp_servers.rubydex]
           command = "env"
           args = ["BUNDLE_GEMFILE=${GITHUB_WORKSPACE}/Gemfile", "bundle", "exec", "rdx", "mcp"]
-          cwd = "${GITHUB_WORKSPACE}/${fixture_dir}"
+          cwd = "${fixture_dir}"
           enabled = true
           required = true
           default_tools_approval_mode = "approve"
@@ -174,7 +184,7 @@ jobs:
               "reasoning": os.environ["REASONING"],
               "repository": "sergii/rubydex-labs",
               "revision": os.environ["GITHUB_SHA"],
-              "fixture": "labs/06-xray-impact/fixture",
+              "fixture": "sanitized-temporary-workspace",
           }, indent=2) + "\n")
           PY
 

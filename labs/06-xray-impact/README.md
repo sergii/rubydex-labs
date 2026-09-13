@@ -78,9 +78,9 @@ The benchmark never boots Rails or calls external services. The fixture only exi
 
 Each sample runs on a fresh GitHub-hosted VM.
 
-Before Codex starts, the workflow removes `ground-truth.json` from the sample checkout. Conditions A and B also have the Lab 06 `knowledge/` and `skills/` directories removed. Condition C keeps those two directories and is explicitly instructed to load them.
+Before the measured agent starts, the workflow copies only the fixture into a clean temporary workspace. Condition C also gets copies of the architecture knowledge and targeted skill inside that workspace. A and B do not. The benchmark directory and Git history are then removed from the measured job, so `ground-truth.json` and the other condition prompts are not locally recoverable by the agent.
 
-Rubydex MCP indexing for B and C is scoped to `labs/06-xray-impact/fixture`, so benchmark documentation, knowledge, skills, and ground truth are not part of the semantic index.
+Rubydex MCP for B and C indexes only the temporary fixture workspace, so benchmark documentation and ground truth are not part of the semantic index.
 
 ## Run on GitHub Actions
 
