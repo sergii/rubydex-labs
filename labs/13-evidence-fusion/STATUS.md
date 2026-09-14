@@ -1,6 +1,6 @@
 # Lab 13 status
 
-**DESIGNED — OFFLINE COMPARATOR + FALSE-CONFLICT GUARDRAILS ADDED — MODEL BENCHMARK NOT RUN**
+**DESIGNED — COMPARISON BOUNDARY FROZEN OFFLINE — MODEL BENCHMARK NOT RUN**
 
 The evidence-fusion protocol is defined around machine-owned assertion comparison rather than free-form model fusion.
 
@@ -11,8 +11,9 @@ assertions
 → identity alignment
 → predicate semantic alignment
 → scope / revision / environment / valid-time alignment
-→ comparison classification
-→ optional conflict / derived assertion / finding candidate
+→ ComparisonRecord
+→ optional ConflictRecord
+→ optional derived assertion / Finding
 ```
 
 Frozen comparison outcomes currently include:
@@ -28,9 +29,19 @@ Frozen comparison outcomes currently include:
 - `CONTRADICTION`;
 - `INSUFFICIENT_EVIDENCE`.
 
+`ComparisonRecord` is now first-class in `schemas/comparison.schema.json`. It separates `comparison_class` from `conflict_state` (`NONE`, `EXPLAINED`, `ACTIVE`, `RESOLVED`). Benign mismatches and unresolved comparability remain comparisons only; they do not create conflicts.
+
+A `ConflictRecord` is appropriate only for the subset of comparisons that establish an active conflict, such as sufficiently aligned `CONTRADICTION` or authoritative declared-vs-observed drift.
+
 The initial offline fixture corpus covers compatible semantic/runtime evidence, declared-vs-observed drift, same-name/different-identity, revision mismatch, environment mismatch, deterministic contradiction, non-overlapping runtime windows, and independent corroboration.
 
-False-conflict mutation tests additionally enforce that changing environment, revision, non-overlapping valid time, entity identity, or predicate comparability cannot accidentally upgrade a benign mismatch into `CONTRADICTION`. True contradictory aligned assertions remain contradictory, and declared-vs-observed policy drift remains a distinct outcome.
+False-conflict mutation tests enforce that changing environment, revision, non-overlapping valid time, entity identity, or predicate comparability cannot accidentally upgrade a benign mismatch into `CONTRADICTION`.
+
+The ComparisonRecord self-test additionally enforces:
+
+- benign comparison classes have `conflict_state = NONE` and no `conflict_ref`;
+- active contradiction/drift classes have `conflict_state = ACTIVE` and an explicit conflict reference;
+- source assertion references and alignment dimensions remain present.
 
 Canonical offline command:
 
@@ -38,12 +49,18 @@ Canonical offline command:
 make lab13-self-test
 ```
 
-The wrapper removes `OPENAI_API_KEY` from its environment and performs no network or model calls. It runs both the frozen fixture comparator and the false-conflict mutation self-test.
+The wrapper removes `OPENAI_API_KEY` from its environment and performs no network or model calls. It runs:
+
+1. frozen comparison fixtures;
+2. false-conflict mutation tests;
+3. ComparisonRecord → ConflictRecord boundary tests.
 
 No real OpenAI API execution is authorized by this status file. No model benchmark has been run.
 
 Frozen guardrail:
 
-> Conflict classification is allowed only after identity, predicate semantics, scope, revision, environment, and time are sufficiently aligned.
+> Comparison is broader than conflict. Conflict classification is allowed only after identity, predicate semantics, scope, revision, environment, and time are sufficiently aligned.
 
-Next offline step: add machine-readable comparison output / comparison-record contract so Lab 13 can feed the world model without turning every comparison into a `ConflictRecord`.
+The conceptual cleanup from the earlier `ConflictRecord` design is now validated enough to use going forward without destructively migrating the v1 conflict schema during Lab 13.
+
+See [`README.md`](README.md), [`../../docs/comparison-model.md`](../../docs/comparison-model.md), and [`../../schemas/comparison.schema.json`](../../schemas/comparison.schema.json).
