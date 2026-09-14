@@ -15,5 +15,6 @@ python3 "$LAB/scripts/compare-assertions.py" \
 
 python3 "$LAB/scripts/self-test.py"
 python3 "$LAB/scripts/self-test-comparison-record.py"
+python3 "$LAB/scripts/self-test-identity-boundary.py"
 
 echo "LAB13_OFFLINE_SELF_TEST_PASS"
