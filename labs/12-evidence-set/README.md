@@ -1,8 +1,8 @@
 # Lab 12 — deterministic EvidenceSet preservation
 
-> **Status: DESIGNED — NOT RUN**
+> **Status: DESIGNED — OFFLINE HARNESS FROZEN — MODEL BENCHMARK NOT RUN**
 >
-> This lab is fully designed but intentionally not executed. Real OpenAI API execution remains disabled unless the repository's explicit API-spend authorization conditions are satisfied and the user explicitly authorizes a new run.
+> The deterministic preservation harness is frozen and can be exercised with one zero-network command. Real OpenAI API execution remains disabled unless the repository's explicit API-spend authorization conditions are satisfied and the user explicitly authorizes a new run.
 
 ## Research question
 
@@ -118,6 +118,31 @@ For every `EvidenceSet`:
 9. model explanation cannot mutate authoritative membership.
 10. authoritative-set validation failure is fail-closed: no completeness claim is emitted.
 
+## Zero-network self-test
+
+Run the frozen deterministic harness from a repository checkout:
+
+```bash
+unset OPENAI_API_KEY
+bin/lab12-self-test
+```
+
+The entrypoint deliberately refuses to run when `OPENAI_API_KEY` is present and performs no network or model calls. It executes three stages:
+
+```text
+1. validate all canonical fixtures
+2. deterministically render + exact-score every fixture
+3. run deliberate corruption/mutation tests
+```
+
+Successful completion ends with:
+
+```text
+LAB12_OFFLINE_SELF_TEST_PASS
+```
+
+This command validates only the deterministic preservation boundary. It does **not** execute conditions A/B/C against an LLM.
+
 ## Metrics
 
 Primary:
@@ -193,6 +218,8 @@ The UI/API must preserve which section is authoritative.
 - `scripts/validate-evidence-set.py` — invariant validator.
 - `scripts/render-evidence-set.py` — deterministic authoritative renderer.
 - `scripts/score-rendering.py` — exact preservation scorer.
+- `scripts/self-test.py` — deliberate-corruption self-test.
+- `../../bin/lab12-self-test` — canonical zero-network entrypoint.
 - `STATUS.md` — execution state and safety boundary.
 
 ## Relationship to later labs
@@ -207,8 +234,8 @@ Lab 15: preserve temporal validity
 Lab 16: compare prediction with observed reality
 ```
 
-## Stop condition
+## Freeze rule
 
-Do not add model complexity to repair deterministic preservation failures. If membership is already known, fix the machine boundary first.
+The deterministic boundary is now frozen unless a self-test exposes a preservation bug or a later lab proves the contract insufficient. Do not add model complexity to repair deterministic preservation failures. If membership is already known, fix the machine boundary first.
 
 See [`../../docs/evidence-architecture.md`](../../docs/evidence-architecture.md), [`../../schemas/evidence-set.schema.json`](../../schemas/evidence-set.schema.json), and [`../../docs/research-roadmap.md`](../../docs/research-roadmap.md).
