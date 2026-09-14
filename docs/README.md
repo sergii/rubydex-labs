@@ -21,6 +21,7 @@
 
 - [`risk-consequence-model.md`](risk-consequence-model.md) — current risk, predicted consequence, observed problem, and realized impact.
 - [`finding-model.md`](finding-model.md) — normalized evidence-backed engineering problems and actionable product projections.
+- [`finding-projection.md`](finding-projection.md) — deterministic Comparison/Conflict → Finding projection with complete upstream lineage.
 - [`decision-action-model.md`](decision-action-model.md) — verification, decisions, authorization boundary, action, and outcome evaluation.
 - [`incident-model.md`](incident-model.md) — temporal incident case, hypotheses, investigation, mitigation, and recovery.
 - [`engineering-memory.md`](engineering-memory.md) — scoped learning, applicability, calibration, reinforcement, and decay.
