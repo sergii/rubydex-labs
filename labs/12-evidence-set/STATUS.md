@@ -1,7 +1,23 @@
 # Lab 12 status
 
-**PLANNED — NOT DESIGNED — NOT RUN**
+**DESIGNED — NOT RUN**
 
-No workflow, API request, or benchmark execution exists for this lab yet.
+The offline protocol, fixture classes, deterministic invariants, rendering boundary, and scoring rules are defined.
 
-See [`README.md`](README.md) and [`../../docs/research-roadmap.md`](../../docs/research-roadmap.md).
+No real OpenAI API execution is authorized by this status file.
+
+Real API execution requires both repository-level spend authorization and explicit user authorization for a new run. Until then, only offline validation and repository changes are permitted.
+
+Current objective:
+
+```text
+backend result
+→ EvidenceSet
+→ deterministic validation
+→ deterministic authoritative rendering
+→ optional model explanation
+```
+
+Primary success criterion: authoritative membership, count, scope, completeness state, and provenance survive projection without model reconstruction.
+
+See [`README.md`](README.md) and [`../../docs/api-spend-safety.md`](../../docs/api-spend-safety.md).
