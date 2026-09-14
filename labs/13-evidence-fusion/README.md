@@ -1,6 +1,6 @@
 # Lab 13 — evidence fusion
 
-> **Status: DESIGNED — OFFLINE HARNESS IN PROGRESS — MODEL BENCHMARK NOT RUN**
+> **Status: DESIGNED — COMPARISON BOUNDARY FROZEN OFFLINE — MODEL BENCHMARK NOT RUN**
 
 ## Research question
 
@@ -40,12 +40,42 @@ Predicate semantic alignment
         ↓
 Scope / revision / environment / valid-time alignment
         ↓
-Comparison classification
+ComparisonRecord
         ↓
-optional Conflict / Finding / Derived assertion
+optional ConflictRecord / Finding / Derived assertion
         ↓
 model explanation
 ```
+
+## Comparison before conflict
+
+Lab 13 now makes `ComparisonRecord` first-class.
+
+```text
+Assertion A + Assertion B
+        ↓
+ComparisonRecord
+        ↓
+conflict_state = NONE | EXPLAINED | ACTIVE | RESOLVED
+        ↓
+optional ConflictRecord
+```
+
+This fixes a conceptual weakness in the older conflict model, where benign differences such as scope or temporal mismatch were stored inside an object called `ConflictRecord`.
+
+The new contract separates:
+
+```text
+comparison_class
+```
+
+from:
+
+```text
+conflict_state
+```
+
+so a difference can be preserved without falsely implying contradiction.
 
 ## What Lab 13 must prove
 
@@ -62,7 +92,7 @@ If those questions are unresolved, the system must preserve uncertainty rather t
 
 ## Comparison states
 
-Lab 13 uses a comparison layer before a conflict layer.
+Lab 13 uses:
 
 ```text
 COMPATIBLE
@@ -79,7 +109,7 @@ INSUFFICIENT_EVIDENCE
 
 Only `DECLARED_VS_OBSERVED_DRIFT` and `CONTRADICTION` are conflict-like outcomes by default. The others are alignment or comparability outcomes.
 
-This intentionally fixes the conceptual weakness identified in the architecture review, where `Conflict` currently also contains benign mismatch classes.
+`schemas/comparison.schema.json` records both the class and the conflict state.
 
 ## Predicate semantics
 
@@ -105,19 +135,12 @@ POTENTIALLY_CONTRADICTORY
 NON_COMPARABLE
 ```
 
-Example:
-
-```text
-allowed_dependency vs called
-= COMPATIBLE_DIFFERENT_TRUTH_DOMAIN
-```
-
 An observed call does not prove the architecture declaration is complete, and an allowed dependency does not prove a call happened.
 
 But:
 
 ```text
-allowed_dependency(A,B)
+allowed_dependency_only(A,B)
 observed called(A,C)
 where policy says ONLY B is allowed
 ```
@@ -137,8 +160,6 @@ may refer to different deployment units, environments, historical entities, or r
 
 Comparisons use stable entity IDs when resolved. If stable identity is unavailable or conflicting, result is `IDENTITY_UNRESOLVED`; the system must not silently compare by name.
 
-Lab 13 therefore treats identity resolution as a prerequisite, not part of the model's prose reasoning.
-
 ## Scope and time alignment
 
 Two assertions can both be true while disagreeing textually because their scopes differ.
@@ -156,18 +177,18 @@ A conflict is impossible to establish until the relevant dimensions overlap or a
 
 ## Frozen offline scenarios
 
-The initial deterministic corpus should cover at least these cases:
+The deterministic corpus covers:
 
-1. `semantic-and-runtime-compatible` — deterministic code relationship and observed runtime call are distinct but compatible.
-2. `declared-and-observed-drift` — architecture allows B, runtime observes unexpected C under the same scope.
-3. `same-name-different-identity` — names match but entity IDs differ; must not fuse.
-4. `same-fact-different-revision` — contradictory-looking facts are separated by revision.
-5. `same-fact-different-environment` — production and staging differ without conflict.
-6. `deterministic-contradiction` — two machine sources establish mutually exclusive values in aligned scope.
-7. `observations-from-different-windows` — runtime observations differ across non-overlapping windows.
-8. `corroborating-independent-sources` — two independent sources support the same aligned assertion.
-9. `derived-consequence-from-compatible-claims` — compatible assertions support a derived consequence without replacing their originals.
-10. `policy-violation` — declared policy and observed behavior align sufficiently to produce a Finding candidate.
+1. compatible semantic/runtime evidence;
+2. declared-vs-observed drift;
+3. same-name/different-identity;
+4. revision mismatch;
+5. environment mismatch;
+6. deterministic contradiction;
+7. non-overlapping runtime windows;
+8. independent corroboration.
+
+Mutation tests additionally try to manufacture false conflicts by changing environment, revision, valid time, entity identity, and predicate semantics.
 
 ## Machine-owned invariants
 
@@ -179,36 +200,46 @@ The initial deterministic corpus should cover at least these cases:
 6. Scope mismatch blocks contradiction classification.
 7. Temporal/revision mismatch blocks contradiction classification unless the task explicitly compares change over time.
 8. `CONTRADICTION` requires aligned identity, comparable predicate semantics, overlapping scope/time, and incompatible values/relations.
-9. A derived assertion references all required input assertions.
-10. A conflict/finding never deletes the source assertions that produced it.
+9. `ComparisonRecord` exists even when no conflict exists.
+10. Benign comparison classes have `conflict_state = NONE` and no `conflict_ref`.
+11. Active contradictions/drift have `conflict_state = ACTIVE` and an explicit conflict reference.
+12. A conflict/finding never deletes the source assertions that produced it.
 
-## Proposed offline conditions
+## Offline execution
 
-Lab 13 first tests deterministic comparison only:
+Canonical command:
 
-```text
-D0 = raw assertions displayed side by side
-D1 = deterministic alignment + comparison
-D2 = deterministic alignment + comparison + derived finding candidate
+```bash
+make lab13-self-test
 ```
 
-No LLM is required for D0–D2.
+It performs zero model/API calls and runs:
 
-A later, explicitly authorized model experiment may compare:
+```text
+1. frozen comparator fixtures
+2. false-conflict mutation tests
+3. ComparisonRecord → ConflictRecord boundary tests
+```
+
+The current offline harness is intended to prove machine semantics, not model quality.
+
+## Later model comparison
+
+A future explicitly authorized experiment may compare:
 
 ```text
 M1 = model receives raw heterogeneous evidence
 M2 = model receives normalized assertions
-M3 = model receives normalized assertions + deterministic comparison result
+M3 = model receives normalized assertions + deterministic ComparisonRecord
 ```
 
-Expected ordering for semantic correctness:
+Expected semantic ordering:
 
 ```text
 M3 >= M2 > M1
 ```
 
-but no model result exists until explicitly run.
+No such model result exists yet.
 
 ## Metrics
 
@@ -222,7 +253,7 @@ Primary deterministic metrics:
 - missed-conflict/drift rate;
 - provenance retention;
 - source assertion preservation;
-- derived assertion lineage completeness.
+- ComparisonRecord/ConflictRecord gating correctness.
 
 Critical metric:
 
@@ -256,7 +287,7 @@ SCOPE_MISMATCH / TEMPORAL_MISMATCH / INSUFFICIENT_EVIDENCE
 
 not a confident finding.
 
-## Relationship to the world model
+## World-model implication
 
 Lab 13 validates this boundary:
 
@@ -267,30 +298,33 @@ Assertion
   ↓
 Identity + semantic + scope/time alignment
   ↓
-Comparison
+ComparisonRecord
   ↓
-Conflict / Derived Assertion / Finding
+optional ConflictRecord
+  ↓
+optional Derived Assertion / Finding
 ```
 
-The graph shown to a human is a projection of these objects, not the source of truth.
+The graph shown to a human remains a projection of these objects, not the source of truth.
 
-## Relationship to architecture cleanup
+## Architecture cleanup result
 
-This lab should produce evidence for two pending design questions:
+The earlier design-review hypothesis is now strong enough to use going forward:
 
-1. whether `identity-link.schema.json` should be narrowed to true identity/representation relations and move `OWNED_BY`, `SERVES_CAPABILITY`, `IMPLEMENTED_BY`, etc. into ordinary assertions;
-2. whether `conflict.schema.json` should evolve into a broader comparison record plus a narrower conflict record.
+> `ComparisonRecord` is the broad epistemic relation between assertions; `ConflictRecord` is a narrower projection for active/resolved conflicts.
 
-Do not migrate those schemas merely because the cleanup appears conceptually attractive. Use Lab 13 cases to validate the boundary first.
+The existing v1 conflict schema remains untouched for compatibility during Lab 13. New code should prefer the comparison-first boundary rather than adding more benign mismatch classes to `ConflictRecord`.
+
+This lab still does not justify a destructive schema migration. It establishes the direction for later cleanup.
 
 ## Safety / execution
 
-The offline deterministic harness must make zero model/API calls.
+The offline deterministic harness makes zero model/API calls.
 
 Real model execution remains disabled unless repository spend authorization and explicit user authorization for a new run are both present.
 
 ## Stop condition
 
-Do not solve fusion by asking the model to "reason carefully" over raw heterogeneous evidence. First make identity, predicate semantics, scope, time, and provenance machine-visible.
+Do not solve fusion by asking the model to "reason carefully" over raw heterogeneous evidence. First make identity, predicate semantics, scope, time, provenance, comparison class, and conflict state machine-visible.
 
-See [`../../docs/world-model.md`](../../docs/world-model.md), [`../../docs/identity-model.md`](../../docs/identity-model.md), [`../../docs/conflict-model.md`](../../docs/conflict-model.md), [`../../schemas/assertion.schema.json`](../../schemas/assertion.schema.json), and [`../../docs/design-review.md`](../../docs/design-review.md).
+See [`../../docs/comparison-model.md`](../../docs/comparison-model.md), [`../../schemas/comparison.schema.json`](../../schemas/comparison.schema.json), [`../../docs/world-model.md`](../../docs/world-model.md), [`../../docs/identity-model.md`](../../docs/identity-model.md), and [`../../docs/conflict-model.md`](../../docs/conflict-model.md).
