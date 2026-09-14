@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LAB="$ROOT/labs/13-evidence-fusion"
+
+if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+  echo "refusing to run: OPENAI_API_KEY is set" >&2
+  exit 2
+fi
+
+python3 "$LAB/scripts/compare-assertions.py" \
+  "$LAB/fixtures/comparisons.json" \
+  "$LAB/fixtures/predicate-rules.json"
+
+echo "LAB13_OFFLINE_SELF_TEST_PASS"
