@@ -1,0 +1,194 @@
+[
+  {
+    "id": "semantic-and-runtime-compatible",
+    "expected": "COMPATIBLE",
+    "left": {
+      "id": "A1",
+      "kind": "DETERMINISTIC",
+      "subject": {"id": "ENT-SVC-CHECKOUT", "type": "Service", "name": "checkout-service"},
+      "predicate": "references",
+      "object": {"id": "ENT-SVC-PAYMENTS", "type": "Service", "name": "payments-api"},
+      "scope": {"repository": "example/repo", "revision": "rev-1", "environment": null, "service": "checkout-service", "filters": []},
+      "valid_time": null,
+      "evidence_refs": ["E1"]
+    },
+    "right": {
+      "id": "A2",
+      "kind": "OBSERVED",
+      "subject": {"id": "ENT-SVC-CHECKOUT", "type": "Service", "name": "checkout-service"},
+      "predicate": "called",
+      "object": {"id": "ENT-SVC-PAYMENTS", "type": "Service", "name": "payments-api"},
+      "scope": {"repository": null, "revision": null, "environment": "production", "service": "checkout-service", "filters": []},
+      "valid_time": {"from": "2026-09-14T00:00:00Z", "to": "2026-09-14T01:00:00Z"},
+      "evidence_refs": ["E2"]
+    }
+  },
+  {
+    "id": "declared-and-observed-drift",
+    "expected": "DECLARED_VS_OBSERVED_DRIFT",
+    "left": {
+      "id": "A3",
+      "kind": "DECLARED",
+      "subject": {"id": "ENT-SVC-CHECKOUT", "type": "Service", "name": "checkout-service"},
+      "predicate": "allowed_dependency_only",
+      "object": {"id": "ENT-SVC-PAYMENTS", "type": "Service", "name": "payments-api"},
+      "scope": {"repository": null, "revision": null, "environment": "production", "service": "checkout-service", "filters": []},
+      "valid_time": {"from": "2026-09-01T00:00:00Z", "to": null},
+      "evidence_refs": ["E3"]
+    },
+    "right": {
+      "id": "A4",
+      "kind": "OBSERVED",
+      "subject": {"id": "ENT-SVC-CHECKOUT", "type": "Service", "name": "checkout-service"},
+      "predicate": "called",
+      "object": {"id": "ENT-SVC-LEGACY", "type": "Service", "name": "legacy-payments-api"},
+      "scope": {"repository": null, "revision": null, "environment": "production", "service": "checkout-service", "filters": []},
+      "valid_time": {"from": "2026-09-14T00:00:00Z", "to": "2026-09-14T01:00:00Z"},
+      "evidence_refs": ["E4"]
+    }
+  },
+  {
+    "id": "same-name-different-identity",
+    "expected": "IDENTITY_UNRESOLVED",
+    "left": {
+      "id": "A5",
+      "kind": "DECLARED",
+      "subject": {"id": "ENT-PAYMENTS-OLD", "type": "Service", "name": "payments-api"},
+      "predicate": "owns_data",
+      "object": {"value": "ledger", "unit": null},
+      "scope": {"repository": null, "revision": null, "environment": "production", "service": "payments-api", "filters": []},
+      "valid_time": null,
+      "evidence_refs": ["E5"]
+    },
+    "right": {
+      "id": "A6",
+      "kind": "DECLARED",
+      "subject": {"id": "ENT-PAYMENTS-NEW", "type": "Service", "name": "payments-api"},
+      "predicate": "owns_data",
+      "object": {"value": "ledger", "unit": null},
+      "scope": {"repository": null, "revision": null, "environment": "production", "service": "payments-api", "filters": []},
+      "valid_time": null,
+      "evidence_refs": ["E6"]
+    }
+  },
+  {
+    "id": "different-revision-not-conflict",
+    "expected": "REVISION_MISMATCH",
+    "left": {
+      "id": "A7",
+      "kind": "DETERMINISTIC",
+      "subject": {"id": "ENT-COMP-A", "type": "Component", "name": "A"},
+      "predicate": "references",
+      "object": {"id": "ENT-COMP-B", "type": "Component", "name": "B"},
+      "scope": {"repository": "example/repo", "revision": "abc", "environment": null, "service": null, "filters": []},
+      "valid_time": null,
+      "evidence_refs": ["E7"]
+    },
+    "right": {
+      "id": "A8",
+      "kind": "DETERMINISTIC",
+      "subject": {"id": "ENT-COMP-A", "type": "Component", "name": "A"},
+      "predicate": "not_references",
+      "object": {"id": "ENT-COMP-B", "type": "Component", "name": "B"},
+      "scope": {"repository": "example/repo", "revision": "def", "environment": null, "service": null, "filters": []},
+      "valid_time": null,
+      "evidence_refs": ["E8"]
+    }
+  },
+  {
+    "id": "different-environment-not-conflict",
+    "expected": "ENVIRONMENT_MISMATCH",
+    "left": {
+      "id": "A9",
+      "kind": "OBSERVED",
+      "subject": {"id": "ENT-SVC-API", "type": "Service", "name": "api"},
+      "predicate": "feature_enabled",
+      "object": {"value": true, "unit": null},
+      "scope": {"repository": null, "revision": null, "environment": "production", "service": "api", "filters": []},
+      "valid_time": null,
+      "evidence_refs": ["E9"]
+    },
+    "right": {
+      "id": "A10",
+      "kind": "OBSERVED",
+      "subject": {"id": "ENT-SVC-API", "type": "Service", "name": "api"},
+      "predicate": "feature_enabled",
+      "object": {"value": false, "unit": null},
+      "scope": {"repository": null, "revision": null, "environment": "staging", "service": "api", "filters": []},
+      "valid_time": null,
+      "evidence_refs": ["E10"]
+    }
+  },
+  {
+    "id": "deterministic-contradiction",
+    "expected": "CONTRADICTION",
+    "left": {
+      "id": "A11",
+      "kind": "DETERMINISTIC",
+      "subject": {"id": "ENT-FLAG-X", "type": "Component", "name": "flag-x"},
+      "predicate": "configured_value",
+      "object": {"value": "on", "unit": null},
+      "scope": {"repository": "example/repo", "revision": "same-rev", "environment": "production", "service": "api", "filters": []},
+      "valid_time": null,
+      "evidence_refs": ["E11"]
+    },
+    "right": {
+      "id": "A12",
+      "kind": "DETERMINISTIC",
+      "subject": {"id": "ENT-FLAG-X", "type": "Component", "name": "flag-x"},
+      "predicate": "configured_value",
+      "object": {"value": "off", "unit": null},
+      "scope": {"repository": "example/repo", "revision": "same-rev", "environment": "production", "service": "api", "filters": []},
+      "valid_time": null,
+      "evidence_refs": ["E12"]
+    }
+  },
+  {
+    "id": "non-overlapping-observation-windows",
+    "expected": "TEMPORAL_MISMATCH",
+    "left": {
+      "id": "A13",
+      "kind": "OBSERVED",
+      "subject": {"id": "ENT-SVC-QUEUE", "type": "Service", "name": "queue-worker"},
+      "predicate": "queue_depth",
+      "object": {"value": 100, "unit": "jobs"},
+      "scope": {"repository": null, "revision": null, "environment": "production", "service": "queue-worker", "filters": []},
+      "valid_time": {"from": "2026-09-14T00:00:00Z", "to": "2026-09-14T00:10:00Z"},
+      "evidence_refs": ["E13"]
+    },
+    "right": {
+      "id": "A14",
+      "kind": "OBSERVED",
+      "subject": {"id": "ENT-SVC-QUEUE", "type": "Service", "name": "queue-worker"},
+      "predicate": "queue_depth",
+      "object": {"value": 0, "unit": "jobs"},
+      "scope": {"repository": null, "revision": null, "environment": "production", "service": "queue-worker", "filters": []},
+      "valid_time": {"from": "2026-09-14T01:00:00Z", "to": "2026-09-14T01:10:00Z"},
+      "evidence_refs": ["E14"]
+    }
+  },
+  {
+    "id": "independent-corroboration",
+    "expected": "COMPATIBLE",
+    "left": {
+      "id": "A15",
+      "kind": "OBSERVED",
+      "subject": {"id": "ENT-SVC-CHECKOUT", "type": "Service", "name": "checkout-service"},
+      "predicate": "called",
+      "object": {"id": "ENT-SVC-PAYMENTS", "type": "Service", "name": "payments-api"},
+      "scope": {"repository": null, "revision": null, "environment": "production", "service": "checkout-service", "filters": ["trace"]},
+      "valid_time": {"from": "2026-09-14T00:00:00Z", "to": "2026-09-14T01:00:00Z"},
+      "evidence_refs": ["E15"]
+    },
+    "right": {
+      "id": "A16",
+      "kind": "OBSERVED",
+      "subject": {"id": "ENT-SVC-CHECKOUT", "type": "Service", "name": "checkout-service"},
+      "predicate": "called",
+      "object": {"id": "ENT-SVC-PAYMENTS", "type": "Service", "name": "payments-api"},
+      "scope": {"repository": null, "revision": null, "environment": "production", "service": "checkout-service", "filters": ["access-log"]},
+      "valid_time": {"from": "2026-09-14T00:00:00Z", "to": "2026-09-14T01:00:00Z"},
+      "evidence_refs": ["E16"]
+    }
+  }
+]
