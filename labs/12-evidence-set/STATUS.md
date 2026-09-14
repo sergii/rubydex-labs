@@ -7,11 +7,10 @@ The offline protocol, canonical fixture corpus, deterministic invariants, render
 Canonical offline command:
 
 ```bash
-unset OPENAI_API_KEY
-bash bin/lab12-self-test
+make lab12-self-test
 ```
 
-The entrypoint refuses to run when `OPENAI_API_KEY` is present and performs no network or model calls. It runs:
+The Make target unsets `OPENAI_API_KEY` and delegates to `bash bin/lab12-self-test`. The underlying entrypoint refuses to run when `OPENAI_API_KEY` is present and performs no network or model calls. It runs:
 
 1. fixture validation;
 2. deterministic render + exact-score for every fixture;
@@ -50,4 +49,4 @@ Primary success criterion: authoritative membership, count, scope, completeness 
 
 The deterministic Lab 12 contract should now remain unchanged unless an offline self-test exposes a preservation bug or a later lab demonstrates that the contract is insufficient.
 
-See [`README.md`](README.md), [`scripts/self-test.py`](scripts/self-test.py), [`../../bin/lab12-self-test`](../../bin/lab12-self-test), and [`../../docs/api-spend-safety.md`](../../docs/api-spend-safety.md).
+See [`README.md`](README.md), [`scripts/self-test.py`](scripts/self-test.py), [`../../bin/lab12-self-test`](../../bin/lab12-self-test), [`../../Makefile`](../../Makefile), and [`../../docs/api-spend-safety.md`](../../docs/api-spend-safety.md).
