@@ -1,0 +1,15 @@
+{
+  "pairs": [
+    {"left":"references","right":"called","relation":"COMPATIBLE_DIFFERENT_TRUTH_DOMAIN"},
+    {"left":"called","right":"references","relation":"COMPATIBLE_DIFFERENT_TRUTH_DOMAIN"},
+    {"left":"allowed_dependency_only","right":"called","relation":"POTENTIALLY_CONTRADICTORY"},
+    {"left":"called","right":"allowed_dependency_only","relation":"POTENTIALLY_CONTRADICTORY"},
+    {"left":"configured_value","right":"configured_value","relation":"POTENTIALLY_CONTRADICTORY"},
+    {"left":"feature_enabled","right":"feature_enabled","relation":"POTENTIALLY_CONTRADICTORY"},
+    {"left":"queue_depth","right":"queue_depth","relation":"POTENTIALLY_CONTRADICTORY"},
+    {"left":"called","right":"called","relation":"EQUIVALENT"},
+    {"left":"owns_data","right":"owns_data","relation":"EQUIVALENT"},
+    {"left":"references","right":"not_references","relation":"POTENTIALLY_CONTRADICTORY"},
+    {"left":"not_references","right":"references","relation":"POTENTIALLY_CONTRADICTORY"}
+  ]
+}
