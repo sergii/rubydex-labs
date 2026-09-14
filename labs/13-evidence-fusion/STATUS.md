@@ -1,6 +1,6 @@
 # Lab 13 status
 
-**DESIGNED — COMPARISON BOUNDARY FROZEN OFFLINE — MODEL BENCHMARK NOT RUN**
+**DESIGNED — COMPARISON + IDENTITY BOUNDARIES FROZEN OFFLINE — MODEL BENCHMARK NOT RUN**
 
 The evidence-fusion protocol is defined around machine-owned assertion comparison rather than free-form model fusion.
 
@@ -29,19 +29,33 @@ Frozen comparison outcomes currently include:
 - `CONTRADICTION`;
 - `INSUFFICIENT_EVIDENCE`.
 
-`ComparisonRecord` is now first-class in `schemas/comparison.schema.json`. It separates `comparison_class` from `conflict_state` (`NONE`, `EXPLAINED`, `ACTIVE`, `RESOLVED`). Benign mismatches and unresolved comparability remain comparisons only; they do not create conflicts.
+`ComparisonRecord` is first-class in `schemas/comparison.schema.json`. It separates `comparison_class` from `conflict_state` (`NONE`, `EXPLAINED`, `ACTIVE`, `RESOLVED`). Benign mismatches and unresolved comparability remain comparisons only; they do not create conflicts.
 
 A `ConflictRecord` is appropriate only for the subset of comparisons that establish an active conflict, such as sufficiently aligned `CONTRADICTION` or authoritative declared-vs-observed drift.
 
-The initial offline fixture corpus covers compatible semantic/runtime evidence, declared-vs-observed drift, same-name/different-identity, revision mismatch, environment mismatch, deterministic contradiction, non-overlapping runtime windows, and independent corroboration.
+Lab 13 also validates a narrower identity boundary:
 
-False-conflict mutation tests enforce that changing environment, revision, non-overlapping valid time, entity identity, or predicate comparability cannot accidentally upgrade a benign mismatch into `CONTRADICTION`.
+```text
+Identity / representation relations:
+SAME_AS
+RENAMED_FROM
+MOVED_FROM
+REPRESENTS
+OBSERVED_AS
 
-The ComparisonRecord self-test additionally enforces:
+provisional representation relation:
+DEPLOYED_AS
 
-- benign comparison classes have `conflict_state = NONE` and no `conflict_ref`;
-- active contradiction/drift classes have `conflict_state = ACTIVE` and an explicit conflict reference;
-- source assertion references and alignment dimensions remain present.
+ordinary domain assertions:
+IMPLEMENTED_BY
+OWNED_BY
+SERVES_CAPABILITY
+DERIVED_FROM
+```
+
+The legacy `identity-link.schema.json` remains unchanged during Lab 13. New code should treat domain relations as evidence-backed assertions rather than identity links. `DEPLOYED_AS` remains under review because it may represent either representation mapping or an ordinary operational relation depending on semantics.
+
+The identity-boundary self-test verifies relation classification, generation of ordinary assertions for domain relations, and the key invariant that ownership may change while service identity remains stable.
 
 Canonical offline command:
 
@@ -53,14 +67,17 @@ The wrapper removes `OPENAI_API_KEY` from its environment and performs no networ
 
 1. frozen comparison fixtures;
 2. false-conflict mutation tests;
-3. ComparisonRecord → ConflictRecord boundary tests.
+3. ComparisonRecord → ConflictRecord boundary tests;
+4. IdentityLink → Assertion boundary tests.
 
 No real OpenAI API execution is authorized by this status file. No model benchmark has been run.
 
-Frozen guardrail:
+Frozen guardrails:
 
 > Comparison is broader than conflict. Conflict classification is allowed only after identity, predicate semantics, scope, revision, environment, and time are sufficiently aligned.
 
-The conceptual cleanup from the earlier `ConflictRecord` design is now validated enough to use going forward without destructively migrating the v1 conflict schema during Lab 13.
+> If a relationship can change while both endpoint entities remain the same durable entities, model it as an Assertion by default rather than an IdentityLink.
 
-See [`README.md`](README.md), [`../../docs/comparison-model.md`](../../docs/comparison-model.md), and [`../../schemas/comparison.schema.json`](../../schemas/comparison.schema.json).
+The conceptual cleanup from the earlier `ConflictRecord` and broad `IdentityLink` designs is now validated enough to use going forward without destructively migrating the v1 schemas during Lab 13.
+
+See [`README.md`](README.md), [`../../docs/comparison-model.md`](../../docs/comparison-model.md), [`../../docs/identity-boundary.md`](../../docs/identity-boundary.md), and [`../../schemas/comparison.schema.json`](../../schemas/comparison.schema.json).
