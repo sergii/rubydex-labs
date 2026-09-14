@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/incident.schema.json",
+  "title": "Engineering incident",
+  "description": "Durable operational case linking findings, risks, hypotheses, decisions, verifications, actions, impact and timeline events without duplicating their source-of-truth semantics.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "status",
+    "severity",
+    "started_at",
+    "first_detected_at",
+    "finding_refs",
+    "risk_refs",
+    "timeline_event_refs"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "summary": { "type": ["string", "null"] },
+    "status": {
+      "type": "string",
+      "enum": [
+        "DETECTED",
+        "TRIAGED",
+        "INVESTIGATING",
+        "MITIGATING",
+        "MONITORING_RECOVERY",
+        "RESOLVED",
+        "POSTMORTEM",
+        "CLOSED",
+        "MERGED",
+        "DUPLICATE",
+        "FALSE_ALARM"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["SEV0", "SEV1", "SEV2", "SEV3", "SEV4", "UNCLASSIFIED"]
+    },
+    "subject_entity_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "affected_entity_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "finding_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "risk_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "assertion_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "change_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "hypothesis_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "decision_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "verification_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "action_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "timeline_event_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "owner_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "commander_ref": { "type": ["string", "null"] },
+    "root_cause_state": {
+      "type": "string",
+      "enum": ["UNKNOWN", "SUSPECTED", "SUPPORTED", "ESTABLISHED", "DISPUTED"]
+    },
+    "root_cause_assertion_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "impact": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "potential_impact_ref": { "type": ["string", "null"] },
+        "realized_impact_ref": { "type": ["string", "null"] },
+        "current_impact_ref": { "type": ["string", "null"] },
+        "peak_impact_ref": { "type": ["string", "null"] }
+      }
+    },
+    "recovery_criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "status"],
+        "properties": {
+          "description": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "enum": ["PENDING", "SATISFIED", "FAILED", "UNKNOWN"] },
+          "verification_ref": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "started_at": { "type": "string", "format": "date-time" },
+    "first_detected_at": { "type": "string", "format": "date-time" },
+    "mitigated_at": { "type": ["string", "null"], "format": "date-time" },
+    "resolved_at": { "type": ["string", "null"], "format": "date-time" },
+    "closed_at": { "type": ["string", "null"], "format": "date-time" },
+    "merged_into_incident_ref": { "type": ["string", "null"] },
+    "related_incident_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "metadata": { "type": "object" }
+  }
+}
