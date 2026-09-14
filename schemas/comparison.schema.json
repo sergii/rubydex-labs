@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/comparison.schema.json",
+  "title": "Assertion comparison record",
+  "description": "Machine-owned comparison between evidence-backed assertions after identity, predicate, scope, revision, environment, time, and truth-domain alignment. A comparison is not necessarily a conflict.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "assertion_refs",
+    "comparison_class",
+    "conflict_state",
+    "aligned_dimensions",
+    "recorded_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "id": { "type": "string", "minLength": 1 },
+    "assertion_refs": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "comparison_class": {
+      "type": "string",
+      "enum": [
+        "COMPATIBLE",
+        "NON_COMPARABLE_PREDICATE",
+        "IDENTITY_UNRESOLVED",
+        "SCOPE_MISMATCH",
+        "TEMPORAL_MISMATCH",
+        "REVISION_MISMATCH",
+        "ENVIRONMENT_MISMATCH",
+        "DECLARED_VS_OBSERVED_DRIFT",
+        "CONTRADICTION",
+        "INSUFFICIENT_EVIDENCE"
+      ]
+    },
+    "conflict_state": {
+      "type": "string",
+      "enum": ["NONE", "EXPLAINED", "ACTIVE", "RESOLVED"]
+    },
+    "aligned_dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity",
+        "predicate",
+        "scope",
+        "revision",
+        "environment",
+        "valid_time",
+        "truth_domain"
+      ],
+      "properties": {
+        "identity": { "$ref": "#/$defs/alignment_state" },
+        "predicate": { "$ref": "#/$defs/alignment_state" },
+        "scope": { "$ref": "#/$defs/alignment_state" },
+        "revision": { "$ref": "#/$defs/alignment_state" },
+        "environment": { "$ref": "#/$defs/alignment_state" },
+        "valid_time": { "$ref": "#/$defs/alignment_state" },
+        "truth_domain": { "$ref": "#/$defs/alignment_state" }
+      }
+    },
+    "reason": { "type": ["string", "null"] },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "conflict_ref": { "type": ["string", "null"] },
+    "finding_ref": { "type": ["string", "null"] },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "metadata": { "type": "object" }
+  },
+  "$defs": {
+    "alignment_state": {
+      "type": "string",
+      "enum": ["ALIGNED", "MISMATCHED", "UNKNOWN", "NOT_APPLICABLE"]
+    }
+  }
+}
