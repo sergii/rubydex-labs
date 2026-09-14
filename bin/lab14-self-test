@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LAB="$ROOT/labs/14-runtime-evidence"
+
+if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+  echo "refusing to run: OPENAI_API_KEY is set" >&2
+  exit 2
+fi
+
+export NO_PROXY='*'
+export no_proxy='*'
+
+python3 "$LAB/scripts/self-test.py"
+
+echo "LAB14_OFFLINE_SELF_TEST_PASS"
