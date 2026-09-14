@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/incident-event.schema.json",
+  "title": "Incident timeline event",
+  "description": "Append-only event used to reconstruct what happened and what the system knew during an incident.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "incident_ref",
+    "kind",
+    "occurred_at",
+    "recorded_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "id": { "type": "string", "minLength": 1 },
+    "incident_ref": { "type": "string", "minLength": 1 },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "DETECTION",
+        "ALERT",
+        "FINDING_LINKED",
+        "RISK_LINKED",
+        "IMPACT_UPDATE",
+        "HYPOTHESIS_CREATED",
+        "HYPOTHESIS_UPDATED",
+        "DECISION",
+        "VERIFICATION",
+        "ACTION_STARTED",
+        "ACTION_COMPLETED",
+        "MITIGATION",
+        "RECOVERY_SIGNAL",
+        "STATUS_CHANGE",
+        "HUMAN_NOTE",
+        "EXTERNAL_COMMUNICATION",
+        "ROOT_CAUSE_UPDATE"
+      ]
+    },
+    "summary": { "type": ["string", "null"] },
+    "actor_ref": { "type": ["string", "null"] },
+    "source": {
+      "type": ["string", "null"],
+      "enum": ["SYSTEM", "HUMAN", "SENSOR", "EXTERNAL", null]
+    },
+    "entity_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "assertion_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "finding_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "risk_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "hypothesis_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "decision_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "verification_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "action_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "metadata": { "type": "object" }
+  }
+}
