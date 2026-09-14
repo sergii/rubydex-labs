@@ -14,5 +14,6 @@ python3 "$LAB/scripts/compare-assertions.py" \
   "$LAB/fixtures/predicate-rules.json"
 
 python3 "$LAB/scripts/self-test.py"
+python3 "$LAB/scripts/self-test-comparison-record.py"
 
 echo "LAB13_OFFLINE_SELF_TEST_PASS"
