@@ -1,0 +1,12 @@
+[
+  {"relation":"SAME_AS","expected_class":"IDENTITY"},
+  {"relation":"RENAMED_FROM","expected_class":"IDENTITY"},
+  {"relation":"MOVED_FROM","expected_class":"IDENTITY"},
+  {"relation":"REPRESENTS","expected_class":"REPRESENTATION"},
+  {"relation":"OBSERVED_AS","expected_class":"REPRESENTATION"},
+  {"relation":"DEPLOYED_AS","expected_class":"REPRESENTATION_REVIEW"},
+  {"relation":"IMPLEMENTED_BY","expected_class":"DOMAIN_ASSERTION"},
+  {"relation":"OWNED_BY","expected_class":"DOMAIN_ASSERTION"},
+  {"relation":"SERVES_CAPABILITY","expected_class":"DOMAIN_ASSERTION"},
+  {"relation":"DERIVED_FROM","expected_class":"DOMAIN_ASSERTION"}
+]
