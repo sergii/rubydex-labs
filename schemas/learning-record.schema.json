@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubydex-labs.local/schemas/learning-record.schema.json",
+  "title": "Engineering learning record",
+  "description": "Versioned, evidence-backed engineering memory extracted from historical system behavior, decisions, verifications, actions, and outcomes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "kind",
+    "statement",
+    "state",
+    "scope",
+    "supporting_refs",
+    "contradicting_refs",
+    "recorded_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "id": { "type": "string", "minLength": 1 },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "RISK_PATTERN",
+        "CONSEQUENCE_PATTERN",
+        "DIAGNOSTIC_HEURISTIC",
+        "REMEDIATION_EFFECTIVENESS",
+        "FAILURE_MODE",
+        "SYSTEM_INVARIANT",
+        "ROUTING_HEURISTIC",
+        "OWNERSHIP_KNOWLEDGE",
+        "CALIBRATION_RECORD",
+        "ANTI_PATTERN",
+        "PLAYBOOK_STEP",
+        "SIMILARITY_PATTERN"
+      ]
+    },
+    "statement": { "type": "string", "minLength": 1 },
+    "state": {
+      "type": "string",
+      "enum": [
+        "CANDIDATE",
+        "SUPPORTED",
+        "ESTABLISHED",
+        "WEAKENED",
+        "CONFLICTED",
+        "STALE",
+        "SUPERSEDED",
+        "RETRACTED"
+      ]
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "type": ["string", "null"] },
+        "subsystem": { "type": ["string", "null"] },
+        "service": { "type": ["string", "null"] },
+        "capability": { "type": ["string", "null"] },
+        "environment": { "type": ["string", "null"] },
+        "language": { "type": ["string", "null"] },
+        "framework": { "type": ["string", "null"] },
+        "dependency": { "type": ["string", "null"] },
+        "change_shape": { "type": ["string", "null"] },
+        "incident_class": { "type": ["string", "null"] },
+        "revision_from": { "type": ["string", "null"] },
+        "revision_to": { "type": ["string", "null"] },
+        "valid_from": { "type": ["string", "null"], "format": "date-time" },
+        "valid_to": { "type": ["string", "null"], "format": "date-time" },
+        "regions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "entity_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+    "confidence_record": {
+      "oneOf": [
+        { "$ref": "confidence.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "supporting_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "contradicting_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "source_groups": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "applicability": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": ["APPLICABLE", "PARTIALLY_APPLICABLE", "NOT_APPLICABLE", "UNKNOWN"]
+        },
+        "reason": { "type": ["string", "null"] },
+        "evaluated_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "freshness": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": ["CURRENT", "AGING", "STALE", "NOT_TIME_SENSITIVE", "UNKNOWN"]
+        },
+        "reason": { "type": ["string", "null"] },
+        "checked_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "calibration": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "predictions_made": { "type": ["integer", "null"], "minimum": 0 },
+        "confirmed": { "type": ["integer", "null"], "minimum": 0 },
+        "partially_confirmed": { "type": ["integer", "null"], "minimum": 0 },
+        "contradicted": { "type": ["integer", "null"], "minimum": 0 },
+        "inconclusive": { "type": ["integer", "null"], "minimum": 0 },
+        "not_observed": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "effectiveness": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "attempts": { "type": ["integer", "null"], "minimum": 0 },
+        "effective": { "type": ["integer", "null"], "minimum": 0 },
+        "partially_effective": { "type": ["integer", "null"], "minimum": 0 },
+        "ineffective": { "type": ["integer", "null"], "minimum": 0 },
+        "harmful": { "type": ["integer", "null"], "minimum": 0 },
+        "inconclusive": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "retrieval_hints": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "supersedes": { "type": ["string", "null"] },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": ["string", "null"], "format": "date-time" },
+    "metadata": { "type": "object" }
+  }
+}
