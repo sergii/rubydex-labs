@@ -13,7 +13,8 @@
 - [`world-model.md`](world-model.md) — evidence-backed assertions as the durable primitive beneath graph projections.
 - [`identity-model.md`](identity-model.md) — stable identity, representation mapping, temporal continuity, and ambiguity.
 - [`confidence-model.md`](confidence-model.md) — structured confidence/belief rather than decorative scalar certainty.
-- [`conflict-model.md`](conflict-model.md) — assertion comparison, contradiction, reconciliation, and drift detection.
+- [`comparison-model.md`](comparison-model.md) — assertion comparison before conflict; alignment dimensions, comparison classes, and conflict-state gating.
+- [`conflict-model.md`](conflict-model.md) — active contradiction, reconciliation, and drift semantics downstream of comparison.
 
 ## Product and operational semantics
 
