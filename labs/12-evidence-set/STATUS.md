@@ -8,7 +8,7 @@ Canonical offline command:
 
 ```bash
 unset OPENAI_API_KEY
-bin/lab12-self-test
+bash bin/lab12-self-test
 ```
 
 The entrypoint refuses to run when `OPENAI_API_KEY` is present and performs no network or model calls. It runs:
