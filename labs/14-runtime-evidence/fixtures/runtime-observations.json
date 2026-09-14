@@ -1,0 +1,109 @@
+[
+  {
+    "id": "sampled-call-present",
+    "observation": {
+      "backend": "otel-traces",
+      "environment": "production",
+      "window": {"from": "2026-09-14T12:00:00Z", "to": "2026-09-14T12:05:00Z"},
+      "subject": {"id": "ENT-CHECKOUT", "type": "Service", "name": "checkout-service"},
+      "predicate": "called",
+      "object": {"id": "ENT-PAYMENTS", "type": "Service", "name": "payments-api"},
+      "observed": true,
+      "coverage": "SAMPLED",
+      "sample_count": 100,
+      "sampling_rate": 0.1,
+      "filters": ["region=eu"],
+      "evidence_refs": ["EV-TRACE-001"]
+    },
+    "expected": "ASSERT"
+  },
+  {
+    "id": "sampled-call-absent",
+    "observation": {
+      "backend": "otel-traces",
+      "environment": "production",
+      "window": {"from": "2026-09-14T12:00:00Z", "to": "2026-09-14T12:05:00Z"},
+      "subject": {"id": "ENT-CHECKOUT", "type": "Service", "name": "checkout-service"},
+      "predicate": "called",
+      "object": {"id": "ENT-PAYMENTS", "type": "Service", "name": "payments-api"},
+      "observed": false,
+      "coverage": "SAMPLED",
+      "sample_count": 100,
+      "sampling_rate": 0.1,
+      "filters": [],
+      "evidence_refs": ["EV-TRACE-002"]
+    },
+    "expected": "REFUSE_ASSERTION"
+  },
+  {
+    "id": "complete-zero-events",
+    "observation": {
+      "backend": "synthetic-checks",
+      "environment": "production",
+      "window": {"from": "2026-09-14T12:00:00Z", "to": "2026-09-14T12:05:00Z"},
+      "subject": {"id": "ENT-API", "type": "Service", "name": "api"},
+      "predicate": "health_check_failures",
+      "object": {"value": 0, "unit": "count"},
+      "observed": true,
+      "coverage": "COMPLETE_FOR_SCOPE",
+      "sample_count": 5,
+      "sampling_rate": 1.0,
+      "filters": ["check=/health"],
+      "evidence_refs": ["EV-CHECK-001"]
+    },
+    "expected": "ASSERT"
+  },
+  {
+    "id": "missing-window",
+    "observation": {
+      "backend": "logs",
+      "environment": "production",
+      "subject": {"id": "ENT-API", "type": "Service", "name": "api"},
+      "predicate": "error_count",
+      "object": {"value": 3, "unit": "count"},
+      "observed": true,
+      "coverage": "PARTIAL",
+      "sample_count": 3,
+      "sampling_rate": null,
+      "filters": [],
+      "evidence_refs": ["EV-LOG-001"]
+    },
+    "expected": "REFUSE_ASSERTION"
+  },
+  {
+    "id": "metric-window-value",
+    "observation": {
+      "backend": "metrics",
+      "environment": "production",
+      "window": {"from": "2026-09-14T12:00:00Z", "to": "2026-09-14T12:05:00Z"},
+      "subject": {"id": "ENT-PAYMENTS", "type": "Service", "name": "payments-api"},
+      "predicate": "p95_latency_ms",
+      "object": {"value": 240, "unit": "ms"},
+      "observed": true,
+      "coverage": "COMPLETE_FOR_SCOPE",
+      "sample_count": 1200,
+      "sampling_rate": 1.0,
+      "filters": ["route=/charge"],
+      "evidence_refs": ["EV-METRIC-001"]
+    },
+    "expected": "ASSERT"
+  },
+  {
+    "id": "unresolved-runtime-name",
+    "observation": {
+      "backend": "otel-traces",
+      "environment": "production",
+      "window": {"from": "2026-09-14T12:00:00Z", "to": "2026-09-14T12:05:00Z"},
+      "subject": {"representation": "service.name=checkout-service"},
+      "predicate": "called",
+      "object": {"representation": "service.name=payments-api"},
+      "observed": true,
+      "coverage": "SAMPLED",
+      "sample_count": 20,
+      "sampling_rate": null,
+      "filters": [],
+      "evidence_refs": ["EV-TRACE-003"]
+    },
+    "expected": "REQUIRE_IDENTITY_RESOLUTION"
+  }
+]
