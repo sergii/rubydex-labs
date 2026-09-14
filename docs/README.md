@@ -16,6 +16,7 @@
 - [`confidence-model.md`](confidence-model.md) — structured confidence/belief rather than decorative scalar certainty.
 - [`comparison-model.md`](comparison-model.md) — assertion comparison before conflict; alignment dimensions, comparison classes, and conflict-state gating.
 - [`conflict-model.md`](conflict-model.md) — active contradiction, reconciliation, and drift semantics downstream of comparison.
+- [`runtime-evidence-model.md`](runtime-evidence-model.md) — bounded runtime observation semantics, sampling/coverage, absence guardrails, and `OBSERVED` assertions.
 
 ## Product and operational semantics
 
