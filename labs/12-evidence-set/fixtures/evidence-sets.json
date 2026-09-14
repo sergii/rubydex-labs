@@ -1,0 +1,145 @@
+[
+  {
+    "id": "production-references-5",
+    "description": "Five authoritative production references; mirrors the Lab 10 omission failure shape.",
+    "expected_exhaustive_wording": true,
+    "evidence_set": {
+      "schema_version": "1",
+      "evidence_class": "SEMANTIC_RELATIONSHIP_SET",
+      "query": "every direct production reference",
+      "target": "Categories::Types::Base",
+      "scope": {
+        "include": ["production"],
+        "exclude": ["spec", "test"],
+        "filters": ["direct references only"]
+      },
+      "complete": true,
+      "count": 5,
+      "items": [
+        {"key":"app/models/category.rb:158","relation":"references","symbol":"Categories::Types::Base","path":"app/models/category.rb","line":158,"metadata":{}},
+        {"key":"app/services/categories/types/discussion.rb:5","relation":"inherits","symbol":"Categories::Types::Discussion","path":"app/services/categories/types/discussion.rb","line":5,"metadata":{}},
+        {"key":"plugins/discourse-events/app/services/discourse_events/categories/types/events.rb:5","relation":"inherits","symbol":"DiscourseEvents::Categories::Types::Events","path":"plugins/discourse-events/app/services/discourse_events/categories/types/events.rb","line":5,"metadata":{}},
+        {"key":"plugins/discourse-solved/app/services/discourse_solved/categories/types/support.rb:6","relation":"inherits","symbol":"DiscourseSolved::Categories::Types::Support","path":"plugins/discourse-solved/app/services/discourse_solved/categories/types/support.rb","line":6,"metadata":{}},
+        {"key":"plugins/discourse-topic-voting/app/services/discourse_topic_voting/categories/types/ideas.rb:5","relation":"inherits","symbol":"DiscourseTopicVoting::Categories::Types::Ideas","path":"plugins/discourse-topic-voting/app/services/discourse_topic_voting/categories/types/ideas.rb","line":5,"metadata":{}}
+      ],
+      "provenance": {
+        "backend": "rubydex",
+        "repository": "discourse/discourse",
+        "revision": "c89b1a0506a3ec0a249b7f23ac86763b358dc177",
+        "query_id": "lab12-production-references-5",
+        "observed_at": null
+      }
+    }
+  },
+  {
+    "id": "empty-complete-set",
+    "description": "A complete empty result is authoritative emptiness, not uncertainty.",
+    "expected_exhaustive_wording": true,
+    "evidence_set": {
+      "schema_version": "1",
+      "evidence_class": "SEMANTIC_RELATIONSHIP_SET",
+      "query": "all resolved descendants",
+      "target": "Example::Leaf",
+      "scope": {"include":["production"],"exclude":[],"filters":[]},
+      "complete": true,
+      "count": 0,
+      "items": [],
+      "provenance": {"backend":"fixture","repository":"example/repo","revision":"rev-empty","query_id":"lab12-empty","observed_at":null}
+    }
+  },
+  {
+    "id": "incomplete-set",
+    "description": "Membership is preserved, but exhaustive wording is forbidden because acquisition is incomplete.",
+    "expected_exhaustive_wording": false,
+    "evidence_set": {
+      "schema_version": "1",
+      "evidence_class": "RUNTIME_BEHAVIOR",
+      "query": "requests touching checkout during sample window",
+      "target": "checkout-service",
+      "scope": {"include":["production","region:eu"],"exclude":[],"filters":["sampled traces"]},
+      "complete": false,
+      "count": 2,
+      "items": [
+        {"key":"trace:01","relation":"observed_call","symbol":null,"path":null,"line":null,"value":{"callee":"payments-api"},"metadata":{}},
+        {"key":"trace:02","relation":"observed_call","symbol":null,"path":null,"line":null,"value":{"callee":"fraud-api"},"metadata":{}}
+      ],
+      "provenance": {"backend":"otel-fixture","repository":null,"revision":null,"query_id":"lab12-incomplete","observed_at":"2026-09-14T00:00:00Z"}
+    }
+  },
+  {
+    "id": "duplicate-looking-members",
+    "description": "Similar display values must not be deduplicated when stable keys differ.",
+    "expected_exhaustive_wording": true,
+    "evidence_set": {
+      "schema_version": "1",
+      "evidence_class": "ARCHITECTURE_KNOWLEDGE",
+      "query": "all owners named payments",
+      "target": "payments capability",
+      "scope": {"include":[],"exclude":[],"filters":[]},
+      "complete": true,
+      "count": 2,
+      "items": [
+        {"key":"team:payments-platform","relation":"owns","symbol":null,"path":null,"line":null,"value":"payments","metadata":{"entity_id":"ENT-TEAM-1"}},
+        {"key":"team:payments-product","relation":"owns","symbol":null,"path":null,"line":null,"value":"payments","metadata":{"entity_id":"ENT-TEAM-2"}}
+      ],
+      "provenance": {"backend":"architecture-fixture","repository":null,"revision":"arch-7","query_id":"lab12-duplicates","observed_at":null}
+    }
+  },
+  {
+    "id": "same-symbol-different-path",
+    "description": "The same symbol text in different locations remains distinct evidence membership.",
+    "expected_exhaustive_wording": true,
+    "evidence_set": {
+      "schema_version": "1",
+      "evidence_class": "SOURCE_LOCAL",
+      "query": "all local declarations named Handler",
+      "target": "Handler",
+      "scope": {"include":["lib","plugins"],"exclude":[],"filters":[]},
+      "complete": true,
+      "count": 2,
+      "items": [
+        {"key":"lib/a/handler.rb:1","relation":"declares","symbol":"Handler","path":"lib/a/handler.rb","line":1,"metadata":{}},
+        {"key":"plugins/b/handler.rb:1","relation":"declares","symbol":"Handler","path":"plugins/b/handler.rb","line":1,"metadata":{}}
+      ],
+      "provenance": {"backend":"source-fixture","repository":"example/repo","revision":"rev-paths","query_id":"lab12-paths","observed_at":null}
+    }
+  },
+  {
+    "id": "filtered-set",
+    "description": "Scope and filters are part of the authoritative meaning of the set.",
+    "expected_exhaustive_wording": true,
+    "evidence_set": {
+      "schema_version": "1",
+      "evidence_class": "SEMANTIC_RELATIONSHIP_SET",
+      "query": "all direct production descendants",
+      "target": "BaseWorker",
+      "scope": {"include":["app","plugins"],"exclude":["spec","test","tmp"],"filters":["direct descendants","production code"]},
+      "complete": true,
+      "count": 1,
+      "items": [
+        {"key":"app/workers/email_worker.rb:3","relation":"inherits","symbol":"EmailWorker","path":"app/workers/email_worker.rb","line":3,"metadata":{}}
+      ],
+      "provenance": {"backend":"semantic-fixture","repository":"example/repo","revision":"rev-filtered","query_id":"lab12-filtered","observed_at":null}
+    }
+  },
+  {
+    "id": "large-set",
+    "description": "A larger complete set exposes truncation and count drift.",
+    "expected_exhaustive_wording": true,
+    "evidence_set": {
+      "schema_version": "1",
+      "evidence_class": "SEMANTIC_RELATIONSHIP_SET",
+      "query": "all members",
+      "target": "LargeFixture",
+      "scope": {"include":["production"],"exclude":[],"filters":[]},
+      "complete": true,
+      "count": 12,
+      "items": [
+        {"key":"member:01","metadata":{}},{"key":"member:02","metadata":{}},{"key":"member:03","metadata":{}},{"key":"member:04","metadata":{}},
+        {"key":"member:05","metadata":{}},{"key":"member:06","metadata":{}},{"key":"member:07","metadata":{}},{"key":"member:08","metadata":{}},
+        {"key":"member:09","metadata":{}},{"key":"member:10","metadata":{}},{"key":"member:11","metadata":{}},{"key":"member:12","metadata":{}}
+      ],
+      "provenance": {"backend":"fixture","repository":"example/repo","revision":"rev-large","query_id":"lab12-large","observed_at":null}
+    }
+  }
+]
